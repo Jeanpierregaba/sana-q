@@ -1,4 +1,3 @@
-
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "./ui/button";
 import { cn } from "@/lib/utils";
@@ -7,7 +6,6 @@ import {
   Calendar, 
   User, 
   Users, 
-  Settings,
   LogOut,
   Menu,
   X,
@@ -19,6 +17,14 @@ import { useAuth } from "@/hooks/useAuth";
 interface SidebarProps {
   open: boolean;
   setOpen: (open: boolean) => void;
+}
+
+// Define a proper interface for sidebar items
+interface SidebarItem {
+  name: string;
+  path: string;
+  icon: React.ElementType;
+  exact?: boolean; // Making 'exact' an optional property
 }
 
 const Sidebar = ({ open, setOpen }: SidebarProps) => {
@@ -45,18 +51,18 @@ const Sidebar = ({ open, setOpen }: SidebarProps) => {
     }
   }, [location.pathname, isMobile, setOpen]);
 
-  const commonSidebarItems = [
+  const commonSidebarItems: SidebarItem[] = [
     { name: "Tableau de bord", path: "/app", icon: Home, exact: true },
     { name: "Rendez-vous", path: "/app/appointments", icon: Calendar },
     { name: "Médecins", path: "/app/doctors", icon: Users },
     { name: "Mon profil", path: "/app/profile", icon: User }
   ];
 
-  const adminSidebarItems = [
+  const adminSidebarItems: SidebarItem[] = [
     { name: "Admin Dashboard", path: "/app/admin/dashboard", icon: Shield },
   ];
 
-  const sidebarItems = [
+  const sidebarItems: SidebarItem[] = [
     ...commonSidebarItems,
     ...(isAdmin ? adminSidebarItems : [])
   ];
