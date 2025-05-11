@@ -10,9 +10,11 @@ import {
   Settings,
   LogOut,
   Menu,
-  X
+  X,
+  Shield
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useAuth } from "@/hooks/useAuth";
 
 interface SidebarProps {
   open: boolean;
@@ -22,6 +24,7 @@ interface SidebarProps {
 const Sidebar = ({ open, setOpen }: SidebarProps) => {
   const location = useLocation();
   const [isMobile, setIsMobile] = useState(false);
+  const { signOut, isAdmin } = useAuth();
 
   // Track window size
   useEffect(() => {
@@ -42,18 +45,28 @@ const Sidebar = ({ open, setOpen }: SidebarProps) => {
     }
   }, [location.pathname, isMobile, setOpen]);
 
-  // Handle logout
-  const handleLogout = () => {
-    localStorage.removeItem("medisync-user");
-    window.location.href = "/login";
-  };
-
-  const sidebarItems = [
-    { name: "Tableau de bord", path: "/app", icon: Home },
+  const commonSidebarItems = [
+    { name: "Tableau de bord", path: "/app", icon: Home, exact: true },
     { name: "Rendez-vous", path: "/app/appointments", icon: Calendar },
     { name: "Médecins", path: "/app/doctors", icon: Users },
     { name: "Mon profil", path: "/app/profile", icon: User }
   ];
+
+  const adminSidebarItems = [
+    { name: "Admin Dashboard", path: "/app/admin/dashboard", icon: Shield },
+  ];
+
+  const sidebarItems = [
+    ...commonSidebarItems,
+    ...(isAdmin ? adminSidebarItems : [])
+  ];
+
+  const isPathActive = (path: string, exact: boolean = false) => {
+    if (exact) {
+      return location.pathname === path;
+    }
+    return location.pathname.startsWith(path);
+  };
 
   return (
     <>
@@ -100,7 +113,7 @@ const Sidebar = ({ open, setOpen }: SidebarProps) => {
                 className={cn(
                   "flex items-center space-x-3 px-3 py-2 rounded-md transition-colors",
                   "hover:bg-secondary",
-                  location.pathname === item.path 
+                  isPathActive(item.path, item.exact) 
                     ? "bg-secondary text-primary font-medium" 
                     : "text-foreground/70"
                 )}
@@ -116,7 +129,7 @@ const Sidebar = ({ open, setOpen }: SidebarProps) => {
             <Button 
               variant="ghost" 
               className="w-full justify-start text-foreground/70 hover:text-destructive hover:bg-destructive/10"
-              onClick={handleLogout}
+              onClick={signOut}
             >
               <LogOut size={18} className="mr-3" />
               Se déconnecter

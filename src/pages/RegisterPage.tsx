@@ -19,55 +19,65 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { toast } from "sonner";
+import { z } from "zod";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useAuth } from "@/hooks/useAuth";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+
+const registerSchema = z.object({
+  name: z.string().min(2, "Le nom doit contenir au moins 2 caractères"),
+  email: z.string().email("Email invalide"),
+  password: z.string().min(6, "Le mot de passe doit contenir au moins 6 caractères"),
+  confirmPassword: z.string().min(6, "Le mot de passe doit contenir au moins 6 caractères"),
+  userType: z.enum(["patient", "doctor", "facility"]),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Les mots de passe ne correspondent pas",
+  path: ["confirmPassword"],
+});
+
+type RegisterFormValues = z.infer<typeof registerSchema>;
 
 const RegisterPage = () => {
   const navigate = useNavigate();
-  const [isLoading, setIsLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    password: "",
-    confirmPassword: "",
-    userType: "patient",
+  const { signUp, isLoading } = useAuth();
+
+  const form = useForm<RegisterFormValues>({
+    resolver: zodResolver(registerSchema),
+    defaultValues: {
+      name: "",
+      email: "",
+      password: "",
+      confirmPassword: "",
+      userType: "patient",
+    },
   });
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-  };
+  const onSubmit = async (values: RegisterFormValues) => {
+    try {
+      // Extraction du prénom et du nom
+      const nameParts = values.name.split(" ");
+      const lastName = nameParts.pop() || "";
+      const firstName = nameParts.join(" ");
 
-  const handleSelectChange = (value: string) => {
-    setFormData((prev) => ({ ...prev, userType: value }));
-  };
+      await signUp(values.email, values.password, {
+        first_name: firstName,
+        last_name: lastName,
+        user_type: values.userType,
+      });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (formData.password !== formData.confirmPassword) {
-      toast.error("Les mots de passe ne correspondent pas");
-      return;
+      // Redirection vers la page de login après inscription
+      navigate("/login");
+    } catch (error) {
+      // Erreurs déjà gérées dans useAuth
     }
-
-    setIsLoading(true);
-
-    // Simulate registration process (replace with actual registration in a real app)
-    setTimeout(() => {
-      // Mock user data
-      const user = {
-        id: "user-1",
-        name: formData.name,
-        email: formData.email,
-        role: formData.userType,
-      };
-
-      // Store user in localStorage (temporary solution)
-      localStorage.setItem("medisync-user", JSON.stringify(user));
-      
-      setIsLoading(false);
-      toast.success("Inscription réussie!");
-      navigate("/app");
-    }, 1000);
   };
 
   return (
@@ -91,87 +101,108 @@ const RegisterPage = () => {
               Créez votre compte pour commencer à utiliser MediSync.
             </CardDescription>
           </CardHeader>
-          <form onSubmit={handleSubmit}>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Nom complet</Label>
-                <Input
-                  id="name"
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)}>
+              <CardContent className="space-y-4">
+                <FormField
+                  control={form.control}
                   name="name"
-                  type="text"
-                  placeholder="Jean Dupont"
-                  required
-                  value={formData.name}
-                  onChange={handleChange}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nom complet</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Jean Dupont" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
+
+                <FormField
+                  control={form.control}
                   name="email"
-                  type="email"
-                  placeholder="votre@email.com"
-                  required
-                  value={formData.email}
-                  onChange={handleChange}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email</FormLabel>
+                      <FormControl>
+                        <Input placeholder="votre@email.com" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="userType">Type d'utilisateur</Label>
-                <Select
-                  value={formData.userType}
-                  onValueChange={handleSelectChange}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Sélectionnez un type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="patient">Patient</SelectItem>
-                    <SelectItem value="doctor">Médecin</SelectItem>
-                    <SelectItem value="facility">Établissement de santé</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">Mot de passe</Label>
-                <Input
-                  id="password"
+
+                <FormField
+                  control={form.control}
+                  name="userType"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Type d'utilisateur</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Sélectionnez un type" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="patient">Patient</SelectItem>
+                          <SelectItem value="doctor">Médecin</SelectItem>
+                          <SelectItem value="facility">Établissement de santé</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
                   name="password"
-                  type="password"
-                  required
-                  value={formData.password}
-                  onChange={handleChange}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Mot de passe</FormLabel>
+                      <FormControl>
+                        <Input type="password" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirmer le mot de passe</Label>
-                <Input
-                  id="confirmPassword"
+
+                <FormField
+                  control={form.control}
                   name="confirmPassword"
-                  type="password"
-                  required
-                  value={formData.confirmPassword}
-                  onChange={handleChange}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Confirmer le mot de passe</FormLabel>
+                      <FormControl>
+                        <Input type="password" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-              </div>
-            </CardContent>
-            <CardFooter className="flex flex-col space-y-4">
-              <Button
-                type="submit"
-                className="w-full"
-                disabled={isLoading}
-              >
-                {isLoading ? "Création du compte..." : "S'inscrire"}
-              </Button>
-              <div className="text-center text-sm">
-                Déjà un compte?{" "}
-                <Link to="/login" className="font-medium text-primary">
-                  Se connecter
-                </Link>
-              </div>
-            </CardFooter>
-          </form>
+              </CardContent>
+              <CardFooter className="flex flex-col space-y-4">
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={isLoading}
+                >
+                  {isLoading ? "Création du compte..." : "S'inscrire"}
+                </Button>
+                <div className="text-center text-sm">
+                  Déjà un compte?{" "}
+                  <Link to="/login" className="font-medium text-primary">
+                    Se connecter
+                  </Link>
+                </div>
+              </CardFooter>
+            </form>
+          </Form>
         </Card>
       </div>
     </div>

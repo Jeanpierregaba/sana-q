@@ -1,25 +1,18 @@
 
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode, useEffect } from "react";
 import { Navigate, useLocation } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 
 interface ProtectedRouteProps {
   children: ReactNode;
 }
 
-// This is a mock implementation for now
-// In a real app, this would check authentication status from a proper auth provider
 const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const { session, isLoading } = useAuth();
   const location = useLocation();
 
-  useEffect(() => {
-    // Mock authentication check (just checking if we have a user in localStorage)
-    const user = localStorage.getItem("medisync-user");
-    setIsAuthenticated(!!user);
-  }, []);
-
   // Show loading state while checking auth
-  if (isAuthenticated === null) {
+  if (isLoading) {
     return (
       <div className="flex h-screen w-full items-center justify-center">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
@@ -28,7 +21,7 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   }
 
   // Redirect to login if not authenticated
-  if (!isAuthenticated) {
+  if (!session) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 

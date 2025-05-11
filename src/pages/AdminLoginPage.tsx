@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { Link, useNavigate, useLocation } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -24,34 +24,37 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { toast } from "sonner";
+import { LockKeyhole } from "lucide-react";
 
-const loginSchema = z.object({
+const adminLoginSchema = z.object({
   email: z.string().email("Email invalide"),
   password: z.string().min(6, "Le mot de passe doit contenir au moins 6 caractères"),
 });
 
-type LoginFormValues = z.infer<typeof loginSchema>;
+type AdminLoginFormValues = z.infer<typeof adminLoginSchema>;
 
-const LoginPage = () => {
+const AdminLoginPage = () => {
   const navigate = useNavigate();
-  const location = useLocation();
   const { signIn, isLoading } = useAuth();
-  const from = (location.state as { from?: { pathname: string } })?.from?.pathname || "/app";
 
-  const form = useForm<LoginFormValues>({
-    resolver: zodResolver(loginSchema),
+  const form = useForm<AdminLoginFormValues>({
+    resolver: zodResolver(adminLoginSchema),
     defaultValues: {
       email: "",
       password: "",
     },
   });
 
-  const onSubmit = async (values: LoginFormValues) => {
+  const onSubmit = async (values: AdminLoginFormValues) => {
     try {
       await signIn(values.email, values.password);
-      navigate(from, { replace: true });
+      
+      // Vérification de l'administrateur se fera via le hook useAuth
+      // via la redirection automatique dans ProtectedRoute et AdminRoute
+      navigate("/app/admin/dashboard");
     } catch (error) {
-      // Erreur déjà gérée dans useAuth
+      // Erreurs déjà gérées dans useAuth
     }
   };
 
@@ -69,11 +72,16 @@ const LoginPage = () => {
           </Link>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Connexion</CardTitle>
-            <CardDescription>
-              Entrez vos identifiants pour accéder à votre compte.
+        <Card className="border-primary/20 shadow-lg">
+          <CardHeader className="space-y-1">
+            <div className="flex items-center justify-center mb-2">
+              <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                <LockKeyhole className="h-6 w-6 text-primary" />
+              </div>
+            </div>
+            <CardTitle className="text-center">Administration</CardTitle>
+            <CardDescription className="text-center">
+              Accès réservé aux administrateurs
             </CardDescription>
           </CardHeader>
           <Form {...form}>
@@ -84,9 +92,9 @@ const LoginPage = () => {
                   name="email"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Email</FormLabel>
+                      <FormLabel>Email administrateur</FormLabel>
                       <FormControl>
-                        <Input placeholder="votre@email.com" {...field} />
+                        <Input placeholder="admin@medisync.com" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -97,12 +105,7 @@ const LoginPage = () => {
                   name="password"
                   render={({ field }) => (
                     <FormItem>
-                      <div className="flex items-center justify-between">
-                        <FormLabel>Mot de passe</FormLabel>
-                        <Link to="#" className="text-sm font-medium text-primary">
-                          Mot de passe oublié?
-                        </Link>
-                      </div>
+                      <FormLabel>Mot de passe</FormLabel>
                       <FormControl>
                         <Input type="password" {...field} />
                       </FormControl>
@@ -117,20 +120,12 @@ const LoginPage = () => {
                   className="w-full"
                   disabled={isLoading}
                 >
-                  {isLoading ? "Connexion en cours..." : "Se connecter"}
+                  {isLoading ? "Connexion en cours..." : "Accéder au tableau de bord"}
                 </Button>
-                <div className="text-center space-y-2">
-                  <div className="text-sm">
-                    Pas encore de compte?{" "}
-                    <Link to="/register" className="font-medium text-primary">
-                      S'inscrire
-                    </Link>
-                  </div>
-                  <div className="text-sm">
-                    <Link to="/admin-login" className="font-medium text-muted-foreground">
-                      Accès administrateur
-                    </Link>
-                  </div>
+                <div className="text-center">
+                  <Link to="/login" className="text-sm text-muted-foreground hover:text-primary transition-colors">
+                    Retour à la connexion utilisateur
+                  </Link>
                 </div>
               </CardFooter>
             </form>
@@ -141,4 +136,4 @@ const LoginPage = () => {
   );
 };
 
-export default LoginPage;
+export default AdminLoginPage;

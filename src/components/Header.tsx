@@ -12,6 +12,7 @@ import { Bell, Menu, Sun, Moon, User } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { useTheme } from "./theme-provider";
+import { useAuth } from "@/hooks/useAuth";
 
 interface HeaderProps {
   sidebarOpen: boolean;
@@ -20,12 +21,14 @@ interface HeaderProps {
 
 const Header = ({ sidebarOpen, setSidebarOpen }: HeaderProps) => {
   const { theme, setTheme } = useTheme();
+  const { profile, signOut, isAdmin } = useAuth();
   
-  const user = {
-    name: "Patient Test",
-    email: "patient@example.com",
-    avatar: "",
-  };
+  const userName = profile ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() : 'Utilisateur';
+  const userEmail = profile?.user_type === 'admin' ? 'Administrateur' : profile?.user_type || '';
+
+  const userInitials = userName !== 'Utilisateur' 
+    ? `${profile?.first_name?.[0] || ''}${profile?.last_name?.[0] || ''}`.toUpperCase()
+    : 'U';
 
   return (
     <header className="sticky top-0 z-10 flex h-16 items-center gap-4 border-b bg-background px-4 md:px-6">
@@ -42,6 +45,7 @@ const Header = ({ sidebarOpen, setSidebarOpen }: HeaderProps) => {
       <div className="w-full flex justify-between items-center">
         <div>
           <h1 className="text-lg font-semibold md:text-xl">MediSync</h1>
+          {isAdmin && <span className="ml-2 text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">Admin</span>}
         </div>
 
         <div className="flex items-center gap-2 md:gap-4">
@@ -68,17 +72,17 @@ const Header = ({ sidebarOpen, setSidebarOpen }: HeaderProps) => {
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="relative h-8 w-8 rounded-full">
                 <Avatar>
-                  <AvatarImage src={user.avatar} alt={user.name} />
-                  <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+                  <AvatarImage src={profile?.avatar_url || ''} alt={userName} />
+                  <AvatarFallback>{userInitials}</AvatarFallback>
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-56" align="end" forceMount>
               <DropdownMenuLabel className="font-normal">
                 <div className="flex flex-col space-y-1">
-                  <p className="text-sm font-medium leading-none">{user.name}</p>
-                  <p className="text-xs leading-none text-muted-foreground">
-                    {user.email}
+                  <p className="text-sm font-medium leading-none">{userName}</p>
+                  <p className="text-xs leading-none text-muted-foreground capitalize">
+                    {userEmail}
                   </p>
                 </div>
               </DropdownMenuLabel>
@@ -91,10 +95,7 @@ const Header = ({ sidebarOpen, setSidebarOpen }: HeaderProps) => {
               </DropdownMenuItem>
               <DropdownMenuItem 
                 className="cursor-pointer text-destructive focus:text-destructive"
-                onClick={() => {
-                  localStorage.removeItem("medisync-user");
-                  window.location.href = "/login";
-                }}
+                onClick={signOut}
               >
                 Se déconnecter
               </DropdownMenuItem>
