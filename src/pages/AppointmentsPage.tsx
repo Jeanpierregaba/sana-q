@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -158,7 +157,13 @@ const AppointmentsPage = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <Button onClick={() => document.querySelector('[data-value="new"]')?.click()}>
+                <Button onClick={() => {
+                  // Fix: Find the element and use an explicit cast to HTMLElement
+                  const newTabTrigger = document.querySelector('[data-value="new"]');
+                  if (newTabTrigger && newTabTrigger instanceof HTMLElement) {
+                    newTabTrigger.click();
+                  }
+                }}>
                   Prendre un rendez-vous
                 </Button>
               </CardContent>
