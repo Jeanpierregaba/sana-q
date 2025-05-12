@@ -9,29 +9,167 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      health_centers: {
+        Row: {
+          address: string
+          city: string
+          country: string
+          created_at: string
+          created_by: string | null
+          email: string | null
+          id: string
+          name: string
+          phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          address: string
+          city: string
+          country: string
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          id?: string
+          name: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string
+          city?: string
+          country?: string
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          id?: string
+          name?: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      platform_settings: {
+        Row: {
+          created_at: string
+          id: string
+          setting_key: string
+          setting_value: Json | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          setting_key: string
+          setting_value?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          setting_key?: string
+          setting_value?: Json | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      practitioner_centers: {
+        Row: {
+          center_id: string
+          created_at: string
+          id: string
+          practitioner_id: string
+        }
+        Insert: {
+          center_id: string
+          created_at?: string
+          id?: string
+          practitioner_id: string
+        }
+        Update: {
+          center_id?: string
+          created_at?: string
+          id?: string
+          practitioner_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "practitioner_centers_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "health_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "practitioner_centers_practitioner_id_fkey"
+            columns: ["practitioner_id"]
+            isOneToOne: false
+            referencedRelation: "practitioners"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      practitioners: {
+        Row: {
+          created_at: string
+          description: string | null
+          experience_years: number
+          id: string
+          speciality: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          experience_years: number
+          id?: string
+          speciality: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          experience_years?: number
+          id?: string
+          speciality?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
+          address: string | null
           avatar_url: string | null
           created_at: string
+          date_of_birth: string | null
           first_name: string | null
+          gender: string | null
           id: string
           last_name: string | null
           updated_at: string
           user_type: string
         }
         Insert: {
+          address?: string | null
           avatar_url?: string | null
           created_at?: string
+          date_of_birth?: string | null
           first_name?: string | null
+          gender?: string | null
           id: string
           last_name?: string | null
           updated_at?: string
           user_type: string
         }
         Update: {
+          address?: string | null
           avatar_url?: string | null
           created_at?: string
+          date_of_birth?: string | null
           first_name?: string | null
+          gender?: string | null
           id?: string
           last_name?: string | null
           updated_at?: string
@@ -44,7 +182,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      is_admin: {
+        Args: { uid: string }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never

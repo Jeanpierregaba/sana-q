@@ -20,6 +20,14 @@ import { AuthProvider } from "./hooks/useAuth";
 import AdminLoginPage from "./pages/AdminLoginPage";
 import AdminRoute from "./components/AdminRoute";
 
+// Import des pages d'administration
+import AdminDashboardPage from "./pages/admin/AdminDashboardPage";
+import PatientsPage from "./pages/admin/PatientsPage";
+import PractitionersPage from "./pages/admin/PractitionersPage";
+import HealthCentersPage from "./pages/admin/HealthCentersPage";
+import PractitionerCentersPage from "./pages/admin/PractitionerCentersPage";
+import SettingsPage from "./pages/admin/SettingsPage";
+
 const queryClient = new QueryClient();
 
 const AppRoutes = () => (
@@ -38,7 +46,12 @@ const AppRoutes = () => (
       
       {/* Admin only routes */}
       <Route path="admin" element={<AdminRoute><Navigate to="/app/admin/dashboard" /></AdminRoute>} />
-      <Route path="admin/dashboard" element={<AdminRoute><DashboardPage /></AdminRoute>} />
+      <Route path="admin/dashboard" element={<AdminRoute><AdminDashboardPage /></AdminRoute>} />
+      <Route path="admin/patients" element={<AdminRoute><PatientsPage /></AdminRoute>} />
+      <Route path="admin/practitioners" element={<AdminRoute><PractitionersPage /></AdminRoute>} />
+      <Route path="admin/centers" element={<AdminRoute><HealthCentersPage /></AdminRoute>} />
+      <Route path="admin/practitioner-centers" element={<AdminRoute><PractitionerCentersPage /></AdminRoute>} />
+      <Route path="admin/settings" element={<AdminRoute><SettingsPage /></AdminRoute>} />
     </Route>
     
     {/* Catch-all route */}

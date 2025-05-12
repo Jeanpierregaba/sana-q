@@ -1,3 +1,4 @@
+
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "./ui/button";
 import { cn } from "@/lib/utils";
@@ -9,7 +10,11 @@ import {
   LogOut,
   Menu,
   X,
-  Shield
+  Shield,
+  Settings,
+  UserCog,
+  Building,
+  Link2
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
@@ -59,7 +64,12 @@ const Sidebar = ({ open, setOpen }: SidebarProps) => {
   ];
 
   const adminSidebarItems: SidebarItem[] = [
-    { name: "Admin Dashboard", path: "/app/admin/dashboard", icon: Shield },
+    { name: "Dashboard Admin", path: "/app/admin/dashboard", icon: Shield },
+    { name: "Patients", path: "/app/admin/patients", icon: Users },
+    { name: "Praticiens", path: "/app/admin/practitioners", icon: UserCog },
+    { name: "Centres de santé", path: "/app/admin/centers", icon: Building },
+    { name: "Affiliations", path: "/app/admin/practitioner-centers", icon: Link2 },
+    { name: "Paramètres", path: "/app/admin/settings", icon: Settings }
   ];
 
   const sidebarItems: SidebarItem[] = [
