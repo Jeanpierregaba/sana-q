@@ -59,7 +59,7 @@ const AdminLoginPage = () => {
           .eq('id', user.id)
           .single();
         
-        if (profileData && profileData.user_type === 'admin') {
+        if ( profileData.user_type === 'admin') {
           toast.success("Bienvenue dans l'administration");
           navigate("/app/admin/dashboard");
         } else {
