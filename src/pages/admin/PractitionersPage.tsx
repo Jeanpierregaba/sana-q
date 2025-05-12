@@ -28,11 +28,9 @@ type PractitionerWithProfile = {
   experience_years: number;
   description: string | null;
   user_id: string;
-  profile: {
-    first_name: string | null;
-    last_name: string | null;
-    avatar_url: string | null;
-  };
+  first_name: string | null;
+  last_name: string | null;
+  avatar_url: string | null;
 };
 
 // Schéma de validation pour le formulaire de praticien
@@ -68,21 +66,59 @@ const PractitionersPage = () => {
     const fetchPractitioners = async () => {
       setIsLoading(true);
       try {
-        const { data, error } = await supabase
+        // Modification de la requête pour éviter la jointure directe
+        const { data: practitionersData, error: practitionersError } = await supabase
           .from('practitioners')
           .select(`
             id,
             speciality,
             experience_years,
             description,
-            user_id,
-            profile:profiles(first_name, last_name, avatar_url)
+            user_id
           `)
           .order('speciality', { ascending: true });
         
-        if (error) throw error;
+        if (practitionersError) throw practitionersError;
         
-        setPractitioners(data || []);
+        if (!practitionersData || practitionersData.length === 0) {
+          setPractitioners([]);
+          setIsLoading(false);
+          return;
+        }
+        
+        // Récupérer les profils séparément
+        const userIds = practitionersData.map(p => p.user_id);
+        
+        const { data: profilesData, error: profilesError } = await supabase
+          .from('profiles')
+          .select('id, first_name, last_name, avatar_url')
+          .in('id', userIds);
+        
+        if (profilesError) throw profilesError;
+        
+        // Créer une map pour les données de profil
+        const profilesMap = new Map();
+        profilesData?.forEach(profile => {
+          profilesMap.set(profile.id, profile);
+        });
+        
+        // Combiner les données
+        const combinedData = practitionersData.map(practitioner => {
+          const profile = profilesMap.get(practitioner.user_id) || { 
+            first_name: null, 
+            last_name: null, 
+            avatar_url: null 
+          };
+          
+          return {
+            ...practitioner,
+            first_name: profile.first_name,
+            last_name: profile.last_name,
+            avatar_url: profile.avatar_url
+          };
+        });
+        
+        setPractitioners(combinedData);
       } catch (error: any) {
         console.error("Error fetching practitioners:", error);
         toast.error("Erreur lors du chargement des praticiens");
@@ -173,12 +209,17 @@ const PractitionersPage = () => {
         // Mettre à jour la liste locale
         setPractitioners(practitioners.map(p => 
           p.id === selectedPractitioner.id 
-            ? { ...p, ...values } 
+            ? { 
+                ...p, 
+                speciality: values.speciality,
+                experience_years: values.experience_years,
+                description: values.description || null
+              } 
             : p
         ));
       } else {
         // Création
-        const { data, error } = await supabase
+        const { data: newPractitioner, error: insertError } = await supabase
           .from('practitioners')
           .insert({
             speciality: values.speciality,
@@ -186,23 +227,32 @@ const PractitionersPage = () => {
             description: values.description,
             user_id: values.user_id,
           })
-          .select(`
-            id,
-            speciality,
-            experience_years,
-            description,
-            user_id,
-            profile:profiles(first_name, last_name, avatar_url)
-          `)
+          .select('id, speciality, experience_years, description, user_id')
           .single();
         
-        if (error) throw error;
+        if (insertError) throw insertError;
+        
+        // Récupérer les informations de profil
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('first_name, last_name, avatar_url')
+          .eq('id', values.user_id)
+          .single();
+        
+        if (profileError) throw profileError;
         
         toast.success("Praticien créé avec succès");
         
         // Ajouter à la liste locale
-        if (data) {
-          setPractitioners([...practitioners, data]);
+        if (newPractitioner) {
+          const newPractitionerWithProfile: PractitionerWithProfile = {
+            ...newPractitioner,
+            first_name: profileData?.first_name || null,
+            last_name: profileData?.last_name || null,
+            avatar_url: profileData?.avatar_url || null
+          };
+          
+          setPractitioners([...practitioners, newPractitionerWithProfile]);
         }
         
         // Mettre à jour la liste des utilisateurs disponibles
@@ -236,7 +286,7 @@ const PractitionersPage = () => {
       // Ajouter l'utilisateur à la liste des utilisateurs disponibles
       const user = {
         id: selectedPractitioner.user_id,
-        name: `${selectedPractitioner.profile.first_name || ''} ${selectedPractitioner.profile.last_name || ''}`.trim()
+        name: `${selectedPractitioner.first_name || ''} ${selectedPractitioner.last_name || ''}`.trim()
       };
       
       setAvailableUsers([...availableUsers, user]);
@@ -295,15 +345,15 @@ const PractitionersPage = () => {
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <Avatar>
-                          <AvatarImage src={practitioner.profile.avatar_url || undefined} />
+                          <AvatarImage src={practitioner.avatar_url || undefined} />
                           <AvatarFallback>
-                            {practitioner.profile.first_name?.[0] || ""}
-                            {practitioner.profile.last_name?.[0] || ""}
+                            {practitioner.first_name?.[0] || ""}
+                            {practitioner.last_name?.[0] || ""}
                           </AvatarFallback>
                         </Avatar>
                         <div>
                           <p className="font-medium">
-                            {practitioner.profile.first_name} {practitioner.profile.last_name}
+                            {practitioner.first_name} {practitioner.last_name}
                           </p>
                         </div>
                       </div>

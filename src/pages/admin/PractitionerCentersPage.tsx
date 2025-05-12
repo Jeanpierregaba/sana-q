@@ -28,16 +28,16 @@ type PractitionerCenter = {
   center_id: string;
   practitioner: {
     speciality: string;
-    profile: {
-      first_name: string | null;
-      last_name: string | null;
-      avatar_url: string | null;
-    };
+    user_id: string;
   };
   center: {
     name: string;
     city: string;
   };
+  // Propriétés de profil séparées
+  practitioner_first_name: string | null;
+  practitioner_last_name: string | null;
+  practitioner_avatar_url: string | null;
 };
 
 // Types pour les options de sélection
@@ -83,7 +83,8 @@ const PractitionerCentersPage = () => {
     const fetchPractitionerCenters = async () => {
       setIsLoading(true);
       try {
-        const { data, error } = await supabase
+        // Modification de la requête pour éviter la jointure directe
+        const { data: pcData, error: pcError } = await supabase
           .from('practitioner_centers')
           .select(`
             id,
@@ -91,11 +92,7 @@ const PractitionerCentersPage = () => {
             center_id,
             practitioner:practitioners(
               speciality,
-              profile:profiles(
-                first_name,
-                last_name,
-                avatar_url
-              )
+              user_id
             ),
             center:health_centers(
               name,
@@ -104,9 +101,47 @@ const PractitionerCentersPage = () => {
           `)
           .order('id', { ascending: true });
         
-        if (error) throw error;
+        if (pcError) throw pcError;
         
-        setPractitionerCenters(data || []);
+        if (!pcData || pcData.length === 0) {
+          setPractitionerCenters([]);
+          setIsLoading(false);
+          return;
+        }
+
+        // Récupération des profils séparément
+        const userIds = pcData.map(pc => pc.practitioner.user_id).filter(Boolean);
+        
+        const { data: profilesData, error: profilesError } = await supabase
+          .from('profiles')
+          .select('id, first_name, last_name, avatar_url')
+          .in('id', userIds);
+        
+        if (profilesError) throw profilesError;
+        
+        // Création d'une map pour les profils
+        const profilesMap = new Map();
+        profilesData?.forEach(profile => {
+          profilesMap.set(profile.id, profile);
+        });
+        
+        // Combinaison des données
+        const combined = pcData.map(pc => {
+          const profile = profilesMap.get(pc.practitioner.user_id) || { 
+            first_name: null, 
+            last_name: null, 
+            avatar_url: null 
+          };
+          
+          return {
+            ...pc,
+            practitioner_first_name: profile.first_name,
+            practitioner_last_name: profile.last_name,
+            practitioner_avatar_url: profile.avatar_url
+          };
+        });
+        
+        setPractitionerCenters(combined);
       } catch (error: any) {
         console.error("Error fetching practitioner centers:", error);
         toast.error("Erreur lors du chargement des associations praticien-centre");
@@ -122,24 +157,44 @@ const PractitionerCentersPage = () => {
   useEffect(() => {
     const fetchPractitioners = async () => {
       try {
-        const { data, error } = await supabase
+        // Modification de la requête pour éviter la jointure directe
+        const { data: practitionersData, error: practitionersError } = await supabase
           .from('practitioners')
-          .select(`
-            id,
-            speciality,
-            profile:profiles(
-              first_name,
-              last_name
-            )
-          `);
+          .select('id, speciality, user_id');
         
-        if (error) throw error;
+        if (practitionersError) throw practitionersError;
         
-        const practitionerOptions = data.map(p => ({
-          id: p.id,
-          name: `${p.profile.first_name || ''} ${p.profile.last_name || ''}`.trim(),
-          speciality: p.speciality
-        }));
+        if (!practitionersData || practitionersData.length === 0) {
+          setPractitioners([]);
+          return;
+        }
+
+        // Récupération des profils séparément
+        const userIds = practitionersData.map(p => p.user_id).filter(Boolean);
+        
+        const { data: profilesData, error: profilesError } = await supabase
+          .from('profiles')
+          .select('id, first_name, last_name')
+          .in('id', userIds);
+        
+        if (profilesError) throw profilesError;
+        
+        // Création d'une map pour les profils
+        const profilesMap = new Map();
+        profilesData?.forEach(profile => {
+          profilesMap.set(profile.id, profile);
+        });
+        
+        // Combinaison des données
+        const practitionerOptions = practitionersData.map(p => {
+          const profile = profilesMap.get(p.user_id) || { first_name: null, last_name: null };
+          
+          return {
+            id: p.id,
+            name: `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Sans nom',
+            speciality: p.speciality
+          };
+        });
         
         setPractitioners(practitionerOptions);
       } catch (error) {
@@ -161,7 +216,7 @@ const PractitionerCentersPage = () => {
         
         if (error) throw error;
         
-        setCenters(data);
+        setCenters(data || []);
       } catch (error) {
         console.error("Error fetching health centers:", error);
       }
@@ -189,7 +244,7 @@ const PractitionerCentersPage = () => {
       }
       
       // Création
-      const { data, error } = await supabase
+      const { data: insertedData, error: insertError } = await supabase
         .from('practitioner_centers')
         .insert({
           practitioner_id: values.practitioner_id,
@@ -198,28 +253,60 @@ const PractitionerCentersPage = () => {
         .select(`
           id,
           practitioner_id,
-          center_id,
-          practitioner:practitioners(
-            speciality,
-            profile:profiles(
-              first_name,
-              last_name,
-              avatar_url
-            )
-          ),
-          center:health_centers(
-            name,
-            city
-          )
+          center_id
         `)
         .single();
       
-      if (error) throw error;
+      if (insertError) throw insertError;
+      
+      // Récupérer les données du praticien
+      const { data: practitionerData, error: practitionerError } = await supabase
+        .from('practitioners')
+        .select('speciality, user_id')
+        .eq('id', values.practitioner_id)
+        .single();
+      
+      if (practitionerError) throw practitionerError;
+      
+      // Récupérer les données du centre
+      const { data: centerData, error: centerError } = await supabase
+        .from('health_centers')
+        .select('name, city')
+        .eq('id', values.center_id)
+        .single();
+      
+      if (centerError) throw centerError;
+      
+      // Récupérer le profil du praticien
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('first_name, last_name, avatar_url')
+        .eq('id', practitionerData.user_id)
+        .single();
+      
+      if (profileError) throw profileError;
+      
+      const newAssociation: PractitionerCenter = {
+        id: insertedData.id,
+        practitioner_id: insertedData.practitioner_id,
+        center_id: insertedData.center_id,
+        practitioner: {
+          speciality: practitionerData.speciality,
+          user_id: practitionerData.user_id
+        },
+        center: {
+          name: centerData.name,
+          city: centerData.city
+        },
+        practitioner_first_name: profileData?.first_name || null,
+        practitioner_last_name: profileData?.last_name || null,
+        practitioner_avatar_url: profileData?.avatar_url || null
+      };
       
       toast.success("Association praticien-centre créée avec succès");
       
       // Ajouter à la liste locale
-      setPractitionerCenters([...practitionerCenters, data]);
+      setPractitionerCenters([...practitionerCenters, newAssociation]);
       setIsDialogOpen(false);
       form.reset();
     } catch (error: any) {
@@ -295,15 +382,15 @@ const PractitionerCentersPage = () => {
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <Avatar>
-                          <AvatarImage src={pc.practitioner.profile.avatar_url || undefined} />
+                          <AvatarImage src={pc.practitioner_avatar_url || undefined} />
                           <AvatarFallback>
-                            {pc.practitioner.profile.first_name?.[0] || ""}
-                            {pc.practitioner.profile.last_name?.[0] || ""}
+                            {pc.practitioner_first_name?.[0] || ""}
+                            {pc.practitioner_last_name?.[0] || ""}
                           </AvatarFallback>
                         </Avatar>
                         <div>
                           <p className="font-medium">
-                            {pc.practitioner.profile.first_name} {pc.practitioner.profile.last_name}
+                            {pc.practitioner_first_name} {pc.practitioner_last_name}
                           </p>
                         </div>
                       </div>
