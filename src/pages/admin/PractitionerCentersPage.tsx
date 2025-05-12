@@ -1,341 +1,40 @@
 
-import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { 
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow 
-} from "@/components/ui/table";
-import { 
-  Dialog, DialogContent, DialogDescription, DialogFooter, 
-  DialogHeader, DialogTitle 
-} from "@/components/ui/dialog";
-import { 
-  Form, FormControl, FormField, FormItem, FormLabel, FormMessage 
-} from "@/components/ui/form";
-import { toast } from "sonner";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
-import * as z from "zod";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Loader2, Plus, Trash, Building } from "lucide-react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-
-// Types pour l'association praticien-centre
-type PractitionerCenter = {
-  id: string;
-  practitioner_id: string;
-  center_id: string;
-  practitioner: {
-    speciality: string;
-    user_id: string;
-  };
-  center: {
-    name: string;
-    city: string;
-  };
-  // Propriétés de profil séparées
-  practitioner_first_name: string | null;
-  practitioner_last_name: string | null;
-  practitioner_avatar_url: string | null;
-};
-
-// Types pour les options de sélection
-type PractitionerOption = {
-  id: string;
-  name: string;
-  speciality: string;
-};
-
-type CenterOption = {
-  id: string;
-  name: string;
-  city: string;
-};
-
-// Schéma de validation pour le formulaire
-const practitionerCenterSchema = z.object({
-  practitioner_id: z.string().uuid({ message: "Veuillez sélectionner un praticien" }),
-  center_id: z.string().uuid({ message: "Veuillez sélectionner un centre" }),
-});
-
-type PractitionerCenterFormValues = z.infer<typeof practitionerCenterSchema>;
+import { Plus } from "lucide-react";
+import { usePractitionerCenters, type PractitionerCenter } from "@/hooks/usePractitionerCenters";
+import { PractitionerCentersTable } from "@/components/admin/PractitionerCentersTable";
+import { CreatePractitionerCenterForm } from "@/components/admin/CreatePractitionerCenterForm";
+import { DeletePractitionerCenterDialog } from "@/components/admin/DeletePractitionerCenterDialog";
 
 const PractitionerCentersPage = () => {
-  const [practitionerCenters, setPractitionerCenters] = useState<PractitionerCenter[]>([]);
-  const [practitioners, setPractitioners] = useState<PractitionerOption[]>([]);
-  const [centers, setCenters] = useState<CenterOption[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { 
+    practitionerCenters, 
+    practitioners, 
+    centers, 
+    isLoading,
+    createAssociation,
+    deleteAssociation
+  } = usePractitionerCenters();
+
   const [selectedAssociation, setSelectedAssociation] = useState<PractitionerCenter | null>(null);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
-  const form = useForm<PractitionerCenterFormValues>({
-    resolver: zodResolver(practitionerCenterSchema),
-    defaultValues: {
-      practitioner_id: "",
-      center_id: "",
-    },
-  });
-
-  // Charger les associations praticien-centre
-  useEffect(() => {
-    const fetchPractitionerCenters = async () => {
-      setIsLoading(true);
-      try {
-        // Modification de la requête pour éviter la jointure directe
-        const { data: pcData, error: pcError } = await supabase
-          .from('practitioner_centers')
-          .select(`
-            id,
-            practitioner_id,
-            center_id,
-            practitioner:practitioners(
-              speciality,
-              user_id
-            ),
-            center:health_centers(
-              name,
-              city
-            )
-          `)
-          .order('id', { ascending: true });
-        
-        if (pcError) throw pcError;
-        
-        if (!pcData || pcData.length === 0) {
-          setPractitionerCenters([]);
-          setIsLoading(false);
-          return;
-        }
-
-        // Récupération des profils séparément
-        const userIds = pcData.map(pc => pc.practitioner.user_id).filter(Boolean);
-        
-        const { data: profilesData, error: profilesError } = await supabase
-          .from('profiles')
-          .select('id, first_name, last_name, avatar_url')
-          .in('id', userIds);
-        
-        if (profilesError) throw profilesError;
-        
-        // Création d'une map pour les profils
-        const profilesMap = new Map();
-        profilesData?.forEach(profile => {
-          profilesMap.set(profile.id, profile);
-        });
-        
-        // Combinaison des données
-        const combined = pcData.map(pc => {
-          const profile = profilesMap.get(pc.practitioner.user_id) || { 
-            first_name: null, 
-            last_name: null, 
-            avatar_url: null 
-          };
-          
-          return {
-            ...pc,
-            practitioner_first_name: profile.first_name,
-            practitioner_last_name: profile.last_name,
-            practitioner_avatar_url: profile.avatar_url
-          };
-        });
-        
-        setPractitionerCenters(combined);
-      } catch (error: any) {
-        console.error("Error fetching practitioner centers:", error);
-        toast.error("Erreur lors du chargement des associations praticien-centre");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchPractitionerCenters();
-  }, []);
-
-  // Charger les praticiens disponibles
-  useEffect(() => {
-    const fetchPractitioners = async () => {
-      try {
-        // Modification de la requête pour éviter la jointure directe
-        const { data: practitionersData, error: practitionersError } = await supabase
-          .from('practitioners')
-          .select('id, speciality, user_id');
-        
-        if (practitionersError) throw practitionersError;
-        
-        if (!practitionersData || practitionersData.length === 0) {
-          setPractitioners([]);
-          return;
-        }
-
-        // Récupération des profils séparément
-        const userIds = practitionersData.map(p => p.user_id).filter(Boolean);
-        
-        const { data: profilesData, error: profilesError } = await supabase
-          .from('profiles')
-          .select('id, first_name, last_name')
-          .in('id', userIds);
-        
-        if (profilesError) throw profilesError;
-        
-        // Création d'une map pour les profils
-        const profilesMap = new Map();
-        profilesData?.forEach(profile => {
-          profilesMap.set(profile.id, profile);
-        });
-        
-        // Combinaison des données
-        const practitionerOptions = practitionersData.map(p => {
-          const profile = profilesMap.get(p.user_id) || { first_name: null, last_name: null };
-          
-          return {
-            id: p.id,
-            name: `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Sans nom',
-            speciality: p.speciality
-          };
-        });
-        
-        setPractitioners(practitionerOptions);
-      } catch (error) {
-        console.error("Error fetching practitioners:", error);
-      }
-    };
-
-    fetchPractitioners();
-  }, []);
-
-  // Charger les centres de santé
-  useEffect(() => {
-    const fetchCenters = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('health_centers')
-          .select('id, name, city')
-          .order('name', { ascending: true });
-        
-        if (error) throw error;
-        
-        setCenters(data || []);
-      } catch (error) {
-        console.error("Error fetching health centers:", error);
-      }
-    };
-
-    fetchCenters();
-  }, []);
-
-  // Gérer la création d'une association praticien-centre
-  const onSubmit = async (values: PractitionerCenterFormValues) => {
-    try {
-      // Vérifier si l'association existe déjà
-      const { data: existingData, error: existingError } = await supabase
-        .from('practitioner_centers')
-        .select('id')
-        .eq('practitioner_id', values.practitioner_id)
-        .eq('center_id', values.center_id)
-        .maybeSingle();
-      
-      if (existingError) throw existingError;
-      
-      if (existingData) {
-        toast.error("Cette association praticien-centre existe déjà");
-        return;
-      }
-      
-      // Création
-      const { data: insertedData, error: insertError } = await supabase
-        .from('practitioner_centers')
-        .insert({
-          practitioner_id: values.practitioner_id,
-          center_id: values.center_id
-        })
-        .select(`
-          id,
-          practitioner_id,
-          center_id
-        `)
-        .single();
-      
-      if (insertError) throw insertError;
-      
-      // Récupérer les données du praticien
-      const { data: practitionerData, error: practitionerError } = await supabase
-        .from('practitioners')
-        .select('speciality, user_id')
-        .eq('id', values.practitioner_id)
-        .single();
-      
-      if (practitionerError) throw practitionerError;
-      
-      // Récupérer les données du centre
-      const { data: centerData, error: centerError } = await supabase
-        .from('health_centers')
-        .select('name, city')
-        .eq('id', values.center_id)
-        .single();
-      
-      if (centerError) throw centerError;
-      
-      // Récupérer le profil du praticien
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('first_name, last_name, avatar_url')
-        .eq('id', practitionerData.user_id)
-        .single();
-      
-      if (profileError) throw profileError;
-      
-      const newAssociation: PractitionerCenter = {
-        id: insertedData.id,
-        practitioner_id: insertedData.practitioner_id,
-        center_id: insertedData.center_id,
-        practitioner: {
-          speciality: practitionerData.speciality,
-          user_id: practitionerData.user_id
-        },
-        center: {
-          name: centerData.name,
-          city: centerData.city
-        },
-        practitioner_first_name: profileData?.first_name || null,
-        practitioner_last_name: profileData?.last_name || null,
-        practitioner_avatar_url: profileData?.avatar_url || null
-      };
-      
-      toast.success("Association praticien-centre créée avec succès");
-      
-      // Ajouter à la liste locale
-      setPractitionerCenters([...practitionerCenters, newAssociation]);
-      setIsDialogOpen(false);
-      form.reset();
-    } catch (error: any) {
-      console.error("Error creating practitioner-center association:", error);
-      toast.error(error.message || "Erreur lors de la création de l'association");
-    }
+  const handleCreateSubmit = async (values: { practitioner_id: string; center_id: string }) => {
+    await createAssociation(values.practitioner_id, values.center_id);
+    setIsCreateDialogOpen(false);
   };
 
-  // Supprimer une association praticien-centre
-  const handleDelete = async () => {
+  const handleDeleteClick = (association: PractitionerCenter) => {
+    setSelectedAssociation(association);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
     if (!selectedAssociation) return;
-    
-    try {
-      const { error } = await supabase
-        .from('practitioner_centers')
-        .delete()
-        .eq('id', selectedAssociation.id);
-      
-      if (error) throw error;
-      
-      toast.success("Association supprimée avec succès");
-      
-      // Mettre à jour la liste locale
-      setPractitionerCenters(practitionerCenters.filter(pc => pc.id !== selectedAssociation.id));
-      setIsDeleteDialogOpen(false);
-    } catch (error: any) {
-      console.error("Error deleting practitioner-center association:", error);
-      toast.error(error.message || "Erreur lors de la suppression de l'association");
-    }
+    await deleteAssociation(selectedAssociation.id);
+    setIsDeleteDialogOpen(false);
   };
 
   return (
@@ -347,189 +46,30 @@ const PractitionerCentersPage = () => {
             Gérez les associations entre praticiens et centres de santé.
           </p>
         </div>
-        <Button 
-          onClick={() => setIsDialogOpen(true)}
-        >
+        <Button onClick={() => setIsCreateDialogOpen(true)}>
           <Plus className="mr-2 h-4 w-4" /> Ajouter
         </Button>
       </div>
 
-      {isLoading ? (
-        <div className="flex justify-center py-10">
-          <Loader2 className="h-10 w-10 animate-spin text-primary" />
-        </div>
-      ) : (
-        <div className="rounded-md border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Praticien</TableHead>
-                <TableHead>Spécialité</TableHead>
-                <TableHead>Centre de santé</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {practitionerCenters.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={4} className="text-center py-6 text-muted-foreground">
-                    Aucune association praticien-centre trouvée
-                  </TableCell>
-                </TableRow>
-              ) : (
-                practitionerCenters.map((pc) => (
-                  <TableRow key={pc.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <Avatar>
-                          <AvatarImage src={pc.practitioner_avatar_url || undefined} />
-                          <AvatarFallback>
-                            {pc.practitioner_first_name?.[0] || ""}
-                            {pc.practitioner_last_name?.[0] || ""}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <p className="font-medium">
-                            {pc.practitioner_first_name} {pc.practitioner_last_name}
-                          </p>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{pc.practitioner.speciality}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <div className="rounded-full p-2 bg-blue-100 text-blue-700">
-                          <Building className="h-4 w-4" />
-                        </div>
-                        <div>
-                          <p className="font-medium">{pc.center.name}</p>
-                          <p className="text-sm text-muted-foreground">{pc.center.city}</p>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button 
-                        variant="outline" 
-                        size="icon"
-                        className="text-destructive hover:bg-destructive/10"
-                        onClick={() => {
-                          setSelectedAssociation(pc);
-                          setIsDeleteDialogOpen(true);
-                        }}
-                      >
-                        <Trash className="h-4 w-4" />
-                        <span className="sr-only">Supprimer</span>
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
-      )}
+      <PractitionerCentersTable
+        practitionerCenters={practitionerCenters}
+        isLoading={isLoading}
+        onDeleteClick={handleDeleteClick}
+      />
 
-      {/* Dialogue de création */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Ajouter une association</DialogTitle>
-            <DialogDescription>
-              Associez un praticien à un centre de santé.
-            </DialogDescription>
-          </DialogHeader>
-          
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="practitioner_id"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Praticien</FormLabel>
-                    <FormControl>
-                      <Select
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Sélectionnez un praticien" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {practitioners.length === 0 ? (
-                            <SelectItem value="none" disabled>Aucun praticien disponible</SelectItem>
-                          ) : (
-                            practitioners.map((practitioner) => (
-                              <SelectItem key={practitioner.id} value={practitioner.id}>
-                                {practitioner.name} - {practitioner.speciality}
-                              </SelectItem>
-                            ))
-                          )}
-                        </SelectContent>
-                      </Select>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <FormField
-                control={form.control}
-                name="center_id"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Centre de santé</FormLabel>
-                    <FormControl>
-                      <Select
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Sélectionnez un centre de santé" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {centers.length === 0 ? (
-                            <SelectItem value="none" disabled>Aucun centre disponible</SelectItem>
-                          ) : (
-                            centers.map((center) => (
-                              <SelectItem key={center.id} value={center.id}>
-                                {center.name} ({center.city})
-                              </SelectItem>
-                            ))
-                          )}
-                        </SelectContent>
-                      </Select>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <DialogFooter>
-                <Button type="submit">Associer</Button>
-              </DialogFooter>
-            </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
+      <CreatePractitionerCenterForm
+        open={isCreateDialogOpen}
+        onOpenChange={setIsCreateDialogOpen}
+        practitioners={practitioners}
+        centers={centers}
+        onSubmit={handleCreateSubmit}
+      />
 
-      {/* Dialogue de confirmation de suppression */}
-      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Confirmation de suppression</DialogTitle>
-            <DialogDescription>
-              Êtes-vous sûr de vouloir supprimer cette association entre le praticien et le centre de santé ? Cette action est irréversible.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>Annuler</Button>
-            <Button variant="destructive" onClick={handleDelete}>Supprimer</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <DeletePractitionerCenterDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={setIsDeleteDialogOpen}
+        onConfirm={handleDeleteConfirm}
+      />
     </div>
   );
 };
