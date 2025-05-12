@@ -1,302 +1,30 @@
 
-import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
 import { 
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow 
-} from "@/components/ui/table";
-import { 
-  Dialog, DialogContent, DialogDescription, DialogFooter, 
+  Dialog, DialogContent, DialogDescription, 
   DialogHeader, DialogTitle 
 } from "@/components/ui/dialog";
-import { 
-  Form, FormControl, FormField, FormItem, FormLabel, FormMessage 
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { toast } from "sonner";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
-import * as z from "zod";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Loader2, Plus, Pencil, Trash } from "lucide-react";
-
-// Types pour les praticiens
-type PractitionerWithProfile = {
-  id: string;
-  speciality: string;
-  experience_years: number;
-  description: string | null;
-  user_id: string;
-  first_name: string | null;
-  last_name: string | null;
-  avatar_url: string | null;
-};
-
-// Schéma de validation pour le formulaire de praticien
-const practitionerSchema = z.object({
-  speciality: z.string().min(2, { message: "La spécialité doit contenir au moins 2 caractères" }),
-  experience_years: z.coerce.number().min(0, { message: "L'expérience ne peut pas être négative" }),
-  description: z.string().optional(),
-  user_id: z.string().uuid({ message: "ID utilisateur invalide" }),
-});
-
-type PractitionerFormValues = z.infer<typeof practitionerSchema>;
+import { usePractitionersData } from "@/hooks/usePractitionersData";
+import { PractitionerTable } from "@/components/admin/practitioners/PractitionerTable";
+import { PractitionerForm } from "@/components/admin/practitioners/PractitionerForm";
+import { DeletePractitionerDialog } from "@/components/admin/practitioners/DeletePractitionerDialog";
 
 const PractitionersPage = () => {
-  const [practitioners, setPractitioners] = useState<PractitionerWithProfile[]>([]);
-  const [availableUsers, setAvailableUsers] = useState<{id: string, name: string}[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [selectedPractitioner, setSelectedPractitioner] = useState<PractitionerWithProfile | null>(null);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-
-  const form = useForm<PractitionerFormValues>({
-    resolver: zodResolver(practitionerSchema),
-    defaultValues: {
-      speciality: "",
-      experience_years: 0,
-      description: "",
-      user_id: "",
-    },
-  });
-
-  // Charger les praticiens
-  useEffect(() => {
-    const fetchPractitioners = async () => {
-      setIsLoading(true);
-      try {
-        // Modification de la requête pour éviter la jointure directe
-        const { data: practitionersData, error: practitionersError } = await supabase
-          .from('practitioners')
-          .select(`
-            id,
-            speciality,
-            experience_years,
-            description,
-            user_id
-          `)
-          .order('speciality', { ascending: true });
-        
-        if (practitionersError) throw practitionersError;
-        
-        if (!practitionersData || practitionersData.length === 0) {
-          setPractitioners([]);
-          setIsLoading(false);
-          return;
-        }
-        
-        // Récupérer les profils séparément
-        const userIds = practitionersData.map(p => p.user_id);
-        
-        const { data: profilesData, error: profilesError } = await supabase
-          .from('profiles')
-          .select('id, first_name, last_name, avatar_url')
-          .in('id', userIds);
-        
-        if (profilesError) throw profilesError;
-        
-        // Créer une map pour les données de profil
-        const profilesMap = new Map();
-        profilesData?.forEach(profile => {
-          profilesMap.set(profile.id, profile);
-        });
-        
-        // Combiner les données
-        const combinedData = practitionersData.map(practitioner => {
-          const profile = profilesMap.get(practitioner.user_id) || { 
-            first_name: null, 
-            last_name: null, 
-            avatar_url: null 
-          };
-          
-          return {
-            ...practitioner,
-            first_name: profile.first_name,
-            last_name: profile.last_name,
-            avatar_url: profile.avatar_url
-          };
-        });
-        
-        setPractitioners(combinedData);
-      } catch (error: any) {
-        console.error("Error fetching practitioners:", error);
-        toast.error("Erreur lors du chargement des praticiens");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchPractitioners();
-  }, []);
-
-  // Charger les utilisateurs disponibles pour devenir praticiens
-  useEffect(() => {
-    const fetchAvailableUsers = async () => {
-      try {
-        // Récupérer tous les profils qui ne sont pas encore praticiens
-        const { data: profiles, error: profilesError } = await supabase
-          .from('profiles')
-          .select(`
-            id,
-            first_name,
-            last_name
-          `)
-          .not('user_type', 'eq', 'admin');
-        
-        if (profilesError) throw profilesError;
-
-        // Récupérer tous les praticiens existants pour exclure leurs IDs
-        const { data: existingPractitioners, error: practitionersError } = await supabase
-          .from('practitioners')
-          .select('user_id');
-        
-        if (practitionersError) throw practitionersError;
-
-        // Filtrer pour ne garder que les utilisateurs qui ne sont pas déjà praticiens
-        const existingPractitionerIds = existingPractitioners.map(p => p.user_id);
-        const filteredProfiles = profiles.filter(p => !existingPractitionerIds.includes(p.id));
-
-        setAvailableUsers(filteredProfiles.map(p => ({
-          id: p.id,
-          name: `${p.first_name || ''} ${p.last_name || ''}`.trim() || p.id
-        })));
-      } catch (error) {
-        console.error("Error fetching available users:", error);
-      }
-    };
-
-    fetchAvailableUsers();
-  }, []);
-
-  // Réinitialiser le formulaire quand le praticien sélectionné change
-  useEffect(() => {
-    if (selectedPractitioner) {
-      form.reset({
-        speciality: selectedPractitioner.speciality,
-        experience_years: selectedPractitioner.experience_years,
-        description: selectedPractitioner.description || "",
-        user_id: selectedPractitioner.user_id,
-      });
-    } else {
-      form.reset({
-        speciality: "",
-        experience_years: 0,
-        description: "",
-        user_id: "",
-      });
-    }
-  }, [selectedPractitioner, form]);
-
-  // Gérer la création/modification d'un praticien
-  const onSubmit = async (values: PractitionerFormValues) => {
-    try {
-      if (selectedPractitioner) {
-        // Mise à jour
-        const { error } = await supabase
-          .from('practitioners')
-          .update({
-            speciality: values.speciality,
-            experience_years: values.experience_years,
-            description: values.description,
-          })
-          .eq('id', selectedPractitioner.id);
-        
-        if (error) throw error;
-        
-        toast.success("Praticien mis à jour avec succès");
-        
-        // Mettre à jour la liste locale
-        setPractitioners(practitioners.map(p => 
-          p.id === selectedPractitioner.id 
-            ? { 
-                ...p, 
-                speciality: values.speciality,
-                experience_years: values.experience_years,
-                description: values.description || null
-              } 
-            : p
-        ));
-      } else {
-        // Création
-        const { data: newPractitioner, error: insertError } = await supabase
-          .from('practitioners')
-          .insert({
-            speciality: values.speciality,
-            experience_years: values.experience_years,
-            description: values.description,
-            user_id: values.user_id,
-          })
-          .select('id, speciality, experience_years, description, user_id')
-          .single();
-        
-        if (insertError) throw insertError;
-        
-        // Récupérer les informations de profil
-        const { data: profileData, error: profileError } = await supabase
-          .from('profiles')
-          .select('first_name, last_name, avatar_url')
-          .eq('id', values.user_id)
-          .single();
-        
-        if (profileError) throw profileError;
-        
-        toast.success("Praticien créé avec succès");
-        
-        // Ajouter à la liste locale
-        if (newPractitioner) {
-          const newPractitionerWithProfile: PractitionerWithProfile = {
-            ...newPractitioner,
-            first_name: profileData?.first_name || null,
-            last_name: profileData?.last_name || null,
-            avatar_url: profileData?.avatar_url || null
-          };
-          
-          setPractitioners([...practitioners, newPractitionerWithProfile]);
-        }
-        
-        // Mettre à jour la liste des utilisateurs disponibles
-        setAvailableUsers(availableUsers.filter(u => u.id !== values.user_id));
-      }
-      
-      setIsDialogOpen(false);
-    } catch (error: any) {
-      console.error("Error saving practitioner:", error);
-      toast.error(error.message || "Erreur lors de l'enregistrement du praticien");
-    }
-  };
-
-  // Supprimer un praticien
-  const handleDelete = async () => {
-    if (!selectedPractitioner) return;
-    
-    try {
-      const { error } = await supabase
-        .from('practitioners')
-        .delete()
-        .eq('id', selectedPractitioner.id);
-      
-      if (error) throw error;
-      
-      toast.success("Praticien supprimé avec succès");
-      
-      // Mettre à jour la liste locale
-      setPractitioners(practitioners.filter(p => p.id !== selectedPractitioner.id));
-      
-      // Ajouter l'utilisateur à la liste des utilisateurs disponibles
-      const user = {
-        id: selectedPractitioner.user_id,
-        name: `${selectedPractitioner.first_name || ''} ${selectedPractitioner.last_name || ''}`.trim()
-      };
-      
-      setAvailableUsers([...availableUsers, user]);
-      
-      setIsDeleteDialogOpen(false);
-    } catch (error: any) {
-      console.error("Error deleting practitioner:", error);
-      toast.error(error.message || "Erreur lors de la suppression du praticien");
-    }
-  };
+  const {
+    practitioners,
+    availableUsers,
+    isLoading,
+    selectedPractitioner,
+    setSelectedPractitioner,
+    isDialogOpen,
+    setIsDialogOpen,
+    isDeleteDialogOpen,
+    setIsDeleteDialogOpen,
+    savePractitioner,
+    deletePractitioner
+  } = usePractitionersData();
 
   return (
     <div className="space-y-6">
@@ -317,83 +45,18 @@ const PractitionersPage = () => {
         </Button>
       </div>
 
-      {isLoading ? (
-        <div className="flex justify-center py-10">
-          <Loader2 className="h-10 w-10 animate-spin text-primary" />
-        </div>
-      ) : (
-        <div className="rounded-md border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Praticien</TableHead>
-                <TableHead>Spécialité</TableHead>
-                <TableHead className="text-center">Années d'expérience</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {practitioners.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={4} className="text-center py-6 text-muted-foreground">
-                    Aucun praticien trouvé
-                  </TableCell>
-                </TableRow>
-              ) : (
-                practitioners.map((practitioner) => (
-                  <TableRow key={practitioner.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <Avatar>
-                          <AvatarImage src={practitioner.avatar_url || undefined} />
-                          <AvatarFallback>
-                            {practitioner.first_name?.[0] || ""}
-                            {practitioner.last_name?.[0] || ""}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <p className="font-medium">
-                            {practitioner.first_name} {practitioner.last_name}
-                          </p>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>{practitioner.speciality}</TableCell>
-                    <TableCell className="text-center">{practitioner.experience_years} ans</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button 
-                          variant="outline" 
-                          size="icon" 
-                          onClick={() => {
-                            setSelectedPractitioner(practitioner);
-                            setIsDialogOpen(true);
-                          }}
-                        >
-                          <Pencil className="h-4 w-4" />
-                          <span className="sr-only">Modifier</span>
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          size="icon"
-                          className="text-destructive hover:bg-destructive/10"
-                          onClick={() => {
-                            setSelectedPractitioner(practitioner);
-                            setIsDeleteDialogOpen(true);
-                          }}
-                        >
-                          <Trash className="h-4 w-4" />
-                          <span className="sr-only">Supprimer</span>
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
-      )}
+      <PractitionerTable 
+        practitioners={practitioners}
+        isLoading={isLoading}
+        onEditPractitioner={(practitioner) => {
+          setSelectedPractitioner(practitioner);
+          setIsDialogOpen(true);
+        }}
+        onDeletePractitioner={(practitioner) => {
+          setSelectedPractitioner(practitioner);
+          setIsDeleteDialogOpen(true);
+        }}
+      />
 
       {/* Dialogue de création/modification */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -409,103 +72,21 @@ const PractitionersPage = () => {
             </DialogDescription>
           </DialogHeader>
           
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              {!selectedPractitioner && (
-                <FormField
-                  control={form.control}
-                  name="user_id"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Utilisateur</FormLabel>
-                      <FormControl>
-                        <select
-                          className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                          {...field}
-                        >
-                          <option value="">Sélectionnez un utilisateur</option>
-                          {availableUsers.map((user) => (
-                            <option key={user.id} value={user.id}>
-                              {user.name}
-                            </option>
-                          ))}
-                        </select>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              )}
-              
-              <FormField
-                control={form.control}
-                name="speciality"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Spécialité</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Spécialité" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <FormField
-                control={form.control}
-                name="experience_years"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Années d'expérience</FormLabel>
-                    <FormControl>
-                      <Input type="number" min="0" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Description</FormLabel>
-                    <FormControl>
-                      <Textarea 
-                        placeholder="Description de l'expérience et des compétences" 
-                        className="min-h-[100px]" 
-                        {...field} 
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <DialogFooter>
-                <Button type="submit">Enregistrer</Button>
-              </DialogFooter>
-            </form>
-          </Form>
+          <PractitionerForm
+            selectedPractitioner={selectedPractitioner}
+            availableUsers={availableUsers}
+            onSubmit={savePractitioner}
+            onCancel={() => setIsDialogOpen(false)}
+          />
         </DialogContent>
       </Dialog>
 
       {/* Dialogue de confirmation de suppression */}
-      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Confirmation de suppression</DialogTitle>
-            <DialogDescription>
-              Êtes-vous sûr de vouloir supprimer ce praticien ? Cette action ne supprime pas le compte utilisateur associé.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>Annuler</Button>
-            <Button variant="destructive" onClick={handleDelete}>Supprimer</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <DeletePractitionerDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={setIsDeleteDialogOpen}
+        onConfirm={deletePractitioner}
+      />
     </div>
   );
 };
