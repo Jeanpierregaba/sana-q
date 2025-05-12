@@ -24,6 +24,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { supabase } from "@/integrations/supabase/client";
 
 const loginSchema = z.object({
   email: z.string().email("Email invalide"),
@@ -49,7 +50,26 @@ const LoginPage = () => {
   const onSubmit = async (values: LoginFormValues) => {
     try {
       await signIn(values.email, values.password);
-      navigate(from, { replace: true });
+      
+      // Récupérer l'utilisateur après la connexion pour déterminer où le rediriger
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('user_type')
+          .eq('id', user.id)
+          .single();
+        
+        if (profileData) {
+          if (profileData.user_type === 'admin') {
+            navigate("/app/admin/dashboard");
+          } else {
+            navigate("/app"); // Utilisateur normal
+          }
+        } else {
+          navigate("/app"); // Par défaut si pas de profil
+        }
+      }
     } catch (error) {
       // Erreur déjà gérée dans useAuth
     }

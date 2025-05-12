@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -26,6 +25,7 @@ import {
 } from "@/components/ui/form";
 import { toast } from "sonner";
 import { LockKeyhole } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 const adminLoginSchema = z.object({
   email: z.string().email("Email invalide"),
@@ -36,7 +36,7 @@ type AdminLoginFormValues = z.infer<typeof adminLoginSchema>;
 
 const AdminLoginPage = () => {
   const navigate = useNavigate();
-  const { signIn, isLoading } = useAuth();
+  const { signIn, isLoading, profile } = useAuth();
 
   const form = useForm<AdminLoginFormValues>({
     resolver: zodResolver(adminLoginSchema),
@@ -48,11 +48,26 @@ const AdminLoginPage = () => {
 
   const onSubmit = async (values: AdminLoginFormValues) => {
     try {
-      await signIn(values.email, values.password);
+      await signIn(values.email, values.password, true);
       
-      // Vérification de l'administrateur se fera via le hook useAuth
-      // via la redirection automatique dans ProtectedRoute et AdminRoute
-      navigate("/app/admin/dashboard");
+      // Récupérer l'utilisateur après la connexion pour vérifier s'il est administrateur
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('user_type')
+          .eq('id', user.id)
+          .single();
+        
+        if (profileData && profileData.user_type === 'admin') {
+          toast.success("Bienvenue dans l'administration");
+          navigate("/app/admin/dashboard");
+        } else {
+          toast.error("Vous n'avez pas les droits d'administrateur");
+          // Déconnexion si l'utilisateur n'est pas admin
+          await supabase.auth.signOut();
+        }
+      }
     } catch (error) {
       // Erreurs déjà gérées dans useAuth
     }

@@ -21,7 +21,7 @@ type AuthContextType = {
   profile: UserProfile | null;
   isLoading: boolean;
   signUp: (email: string, password: string, userData: Partial<UserProfile>) => Promise<void>;
-  signIn: (email: string, password: string) => Promise<void>;
+  signIn: (email: string, password: string, isAdminLogin?: boolean) => Promise<void>;
   signOut: () => Promise<void>;
   isAdmin: boolean;
 };
@@ -135,7 +135,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = async (email: string, password: string, isAdminLogin: boolean = false) => {
     setIsLoading(true);
     try {
       const { error } = await supabase.auth.signInWithPassword({
@@ -147,7 +147,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         throw error;
       }
 
-      // Navigation se fait automatiquement via l'effet onAuthStateChange
+      // Nous utiliserons fetchUserProfile pour vérifier le type d'utilisateur
+      // La navigation se fera dans les pages de login
       toast.success("Connexion réussie!");
     } catch (error: any) {
       console.error("Erreur lors de la connexion:", error);
