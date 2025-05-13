@@ -11,6 +11,8 @@ const AdminRoute = ({ children }: AdminRouteProps) => {
   const { session, isLoading, isAdmin } = useAuth();
   const location = useLocation();
 
+  console.log('AdminRoute - isAdmin:', isAdmin, 'isLoading:', isLoading);
+
   // Afficher l'état de chargement pendant la vérification de l'authentification
   if (isLoading) {
     return (
@@ -27,10 +29,12 @@ const AdminRoute = ({ children }: AdminRouteProps) => {
 
   // Rediriger vers la page principale si l'utilisateur n'est pas admin
   if (!isAdmin) {
+    console.log('User is not admin, redirecting to /app');
     return <Navigate to="/app" replace />;
   }
 
   // Afficher le contenu si l'utilisateur est admin
+  console.log('User is admin, showing admin content');
   return <>{children}</>;
 };
 

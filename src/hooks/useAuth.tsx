@@ -91,26 +91,35 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const fetchUserProfile = async (userId: string) => {
     try {
-      const { data, error } = await supabase
+      // Au lieu d'une requête directe à la table profiles, utilisons la fonction is_admin
+      // combinée avec une requête au profil pour éviter la récursion
+      const { data: adminData, error: adminError } = await supabase.rpc('is_admin', { uid: userId });
+      
+      if (adminError) {
+        console.error("Error checking admin status:", adminError);
+      } else {
+        console.log('Is admin check result:', adminData);
+        setIsAdmin(adminData);
+      }
+
+      // Requête distincte pour récupérer le profil
+      const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
 
-      if (error) {
-        console.error("Error fetching user profile:", error);
-        throw error;
+      if (profileError) {
+        console.error("Error fetching user profile:", profileError);
+        throw profileError;
       }
 
-      if (data) {
-        console.log('User profile loaded:', data);
-        setProfile(data as UserProfile);
-        const userIsAdmin = data.user_type === 'admin';
-        console.log('Setting isAdmin to:', userIsAdmin);
-        setIsAdmin(userIsAdmin);
+      if (profileData) {
+        console.log('User profile loaded:', profileData);
+        setProfile(profileData as UserProfile);
       }
     } catch (error) {
-      console.error("Error fetching user profile:", error);
+      console.error("Error in fetchUserProfile:", error);
     }
   };
 

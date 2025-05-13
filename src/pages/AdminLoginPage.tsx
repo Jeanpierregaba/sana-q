@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -11,7 +10,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
@@ -51,27 +49,27 @@ const AdminLoginPage = () => {
   const onSubmit = async (values: AdminLoginFormValues) => {
     setLoginError(null);
     try {
-      await signIn(values.email, values.password);
+      await signIn(values.email, values.password, true);
       
-      // Récupérer l'utilisateur après la connexion pour vérifier s'il est administrateur
+      // Récupérer l'utilisateur après la connexion
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       
       if (userError) {
         throw userError;
       }
       
+      // Vérifier directement avec la fonction RPC is_admin
       if (user) {
-        const { data: profileData, error: profileError } = await supabase
-          .from('profiles')
-          .select('user_type')
-          .eq('id', user.id)
-          .single();
+        const { data: isAdmin, error: adminError } = await supabase.rpc('is_admin', { 
+          uid: user.id 
+        });
         
-        if (profileError) {
-          throw profileError;
+        if (adminError) {
+          console.error("Erreur lors de la vérification du statut admin:", adminError);
+          throw adminError;
         }
         
-        if (profileData?.user_type === 'admin') {
+        if (isAdmin) {
           toast.success("Bienvenue dans l'administration");
           navigate("/app/admin/dashboard");
         } else {
