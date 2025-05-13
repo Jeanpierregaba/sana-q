@@ -40,12 +40,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // Set up auth state listener first
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, newSession) => {
+        console.log('Auth state change:', event);
         setSession(newSession);
         setUser(newSession?.user ?? null);
 
         if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
           if (newSession?.user) {
-            fetchUserProfile(newSession.user.id);
+            // Utilisez setTimeout pour éviter les problèmes de récursion avec Supabase
+            setTimeout(() => {
+              fetchUserProfile(newSession.user!.id);
+            }, 0);
           }
         }
         
@@ -94,12 +98,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         .single();
 
       if (error) {
+        console.error("Error fetching user profile:", error);
         throw error;
       }
 
       if (data) {
+        console.log('User profile loaded:', data);
         setProfile(data as UserProfile);
-        setIsAdmin(data.user_type === 'admin');
+        const userIsAdmin = data.user_type === 'admin';
+        console.log('Setting isAdmin to:', userIsAdmin);
+        setIsAdmin(userIsAdmin);
       }
     } catch (error) {
       console.error("Error fetching user profile:", error);
@@ -147,8 +155,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         throw error;
       }
 
-      // Nous utiliserons fetchUserProfile pour vérifier le type d'utilisateur
-      // La navigation se fera dans les pages de login
+      // La navigation et la vérification des droits se font dans les pages de login
       toast.success("Connexion réussie!");
     } catch (error: any) {
       console.error("Erreur lors de la connexion:", error);

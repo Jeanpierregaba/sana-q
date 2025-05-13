@@ -24,6 +24,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
 const loginSchema = z.object({
@@ -37,6 +38,7 @@ const LoginPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { signIn, isLoading } = useAuth();
+  const [loginError, setLoginError] = useState<string | null>(null);
   const from = (location.state as { from?: { pathname: string } })?.from?.pathname || "/app";
 
   const form = useForm<LoginFormValues>({
@@ -48,19 +50,32 @@ const LoginPage = () => {
   });
 
   const onSubmit = async (values: LoginFormValues) => {
+    setLoginError(null);
     try {
       await signIn(values.email, values.password);
       
       // Récupérer l'utilisateur après la connexion pour déterminer où le rediriger
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      
+      if (userError) {
+        throw userError;
+      }
+      
       if (user) {
-        const { data: profileData } = await supabase
+        const { data: profileData, error: profileError } = await supabase
           .from('profiles')
           .select('user_type')
           .eq('id', user.id)
           .single();
         
+        if (profileError) {
+          console.error("Erreur de récupération du profil:", profileError);
+          navigate("/app"); // Par défaut si erreur
+          return;
+        }
+        
         if (profileData) {
+          console.log("Type d'utilisateur:", profileData.user_type);
           if (profileData.user_type === 'admin') {
             navigate("/app/admin/dashboard");
           } else {
@@ -70,8 +85,9 @@ const LoginPage = () => {
           navigate("/app"); // Par défaut si pas de profil
         }
       }
-    } catch (error) {
-      // Erreur déjà gérée dans useAuth
+    } catch (error: any) {
+      console.error("Erreur de connexion:", error);
+      setLoginError("Identifiants incorrects ou problème de connexion");
     }
   };
 
@@ -99,6 +115,11 @@ const LoginPage = () => {
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)}>
               <CardContent className="space-y-4">
+                {loginError && (
+                  <div className="p-3 text-sm bg-destructive/10 text-destructive rounded-md">
+                    {loginError}
+                  </div>
+                )}
                 <FormField
                   control={form.control}
                   name="email"

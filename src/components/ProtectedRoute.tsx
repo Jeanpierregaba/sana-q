@@ -12,6 +12,8 @@ const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps)
   const { session, isLoading, isAdmin } = useAuth();
   const location = useLocation();
 
+  console.log('ProtectedRoute - isAdmin:', isAdmin, 'requireAdmin:', requireAdmin);
+
   // Show loading state while checking auth
   if (isLoading) {
     return (
@@ -28,6 +30,7 @@ const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps)
 
   // Si la route nécessite des droits admin et que l'utilisateur n'est pas admin
   if (requireAdmin && !isAdmin) {
+    console.log('Redirecting non-admin from admin route');
     return <Navigate to="/app" replace />;
   }
 

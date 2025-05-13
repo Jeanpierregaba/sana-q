@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -36,7 +37,8 @@ type AdminLoginFormValues = z.infer<typeof adminLoginSchema>;
 
 const AdminLoginPage = () => {
   const navigate = useNavigate();
-  const { signIn, isLoading, profile } = useAuth();
+  const { signIn, isLoading } = useAuth();
+  const [loginError, setLoginError] = useState<string | null>(null);
 
   const form = useForm<AdminLoginFormValues>({
     resolver: zodResolver(adminLoginSchema),
@@ -47,29 +49,42 @@ const AdminLoginPage = () => {
   });
 
   const onSubmit = async (values: AdminLoginFormValues) => {
+    setLoginError(null);
     try {
-      await signIn(values.email, values.password, true);
+      await signIn(values.email, values.password);
       
       // Récupérer l'utilisateur après la connexion pour vérifier s'il est administrateur
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      
+      if (userError) {
+        throw userError;
+      }
+      
       if (user) {
-        const { data: profileData } = await supabase
+        const { data: profileData, error: profileError } = await supabase
           .from('profiles')
           .select('user_type')
           .eq('id', user.id)
           .single();
         
-        if ( profileData.user_type === 'admin') {
+        if (profileError) {
+          throw profileError;
+        }
+        
+        if (profileData?.user_type === 'admin') {
           toast.success("Bienvenue dans l'administration");
           navigate("/app/admin/dashboard");
         } else {
           toast.error("Vous n'avez pas les droits d'administrateur");
           // Déconnexion si l'utilisateur n'est pas admin
           await supabase.auth.signOut();
+          setLoginError("Ce compte ne dispose pas des privilèges administrateur");
         }
       }
-    } catch (error) {
-      // Erreurs déjà gérées dans useAuth
+    } catch (error: any) {
+      console.error("Erreur de connexion admin:", error);
+      toast.error(error.message || "Erreur lors de la connexion");
+      setLoginError("Identifiants incorrects ou problème de connexion");
     }
   };
 
@@ -102,6 +117,11 @@ const AdminLoginPage = () => {
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)}>
               <CardContent className="space-y-4">
+                {loginError && (
+                  <div className="p-3 text-sm bg-destructive/10 text-destructive rounded-md">
+                    {loginError}
+                  </div>
+                )}
                 <FormField
                   control={form.control}
                   name="email"
