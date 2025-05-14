@@ -4,7 +4,7 @@ import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Loader2, Users, Building, UserCog } from "lucide-react";
+import { Loader2, Users, Building, UserCog, Settings } from "lucide-react"; // Added Settings import
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 
