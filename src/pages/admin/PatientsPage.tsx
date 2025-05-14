@@ -68,14 +68,20 @@ const PatientsPage = () => {
     const fetchPatients = async () => {
       setIsLoading(true);
       try {
+        console.log("Fetching patients...");
+        
+        // We query from auth.users via profiles table to get all patients
         const { data, error } = await supabase
           .from('profiles')
           .select('*')
-          .eq('user_type', 'patient')
-          .order('last_name', { ascending: true });
+          .eq('user_type', 'patient');
         
-        if (error) throw error;
+        if (error) {
+          console.error("Error fetching patients:", error);
+          throw error;
+        }
         
+        console.log("Patients data:", data);
         setPatients(data || []);
       } catch (error: any) {
         console.error("Error fetching patients:", error);

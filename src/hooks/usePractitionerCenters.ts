@@ -46,7 +46,9 @@ export function usePractitionerCenters() {
     const fetchPractitionerCenters = async () => {
       setIsLoading(true);
       try {
-        // Modified query to avoid direct join
+        console.log("Fetching practitioner-center associations...");
+        
+        // Fetch all practitioner-center associations
         const { data: pcData, error: pcError } = await supabase
           .from('practitioner_centers')
           .select(`
@@ -61,10 +63,14 @@ export function usePractitionerCenters() {
               name,
               city
             )
-          `)
-          .order('id', { ascending: true });
+          `);
         
-        if (pcError) throw pcError;
+        if (pcError) {
+          console.error("Error fetching practitioner-center associations:", pcError);
+          throw pcError;
+        }
+        
+        console.log("Practitioner-center associations:", pcData);
         
         if (!pcData || pcData.length === 0) {
           setPractitionerCenters([]);
@@ -73,24 +79,42 @@ export function usePractitionerCenters() {
         }
 
         // Fetch profiles separately
-        const userIds = pcData.map(pc => pc.practitioner.user_id).filter(Boolean);
+        const userIds = pcData
+          .map(pc => pc.practitioner?.user_id)
+          .filter(Boolean) as string[];
+        
+        console.log("User IDs to fetch profiles for:", userIds);
+        
+        if (userIds.length === 0) {
+          // If no valid user IDs, set empty array and return
+          setPractitionerCenters([]);
+          setIsLoading(false);
+          return;
+        }
         
         const { data: profilesData, error: profilesError } = await supabase
           .from('profiles')
           .select('id, first_name, last_name, avatar_url')
           .in('id', userIds);
         
-        if (profilesError) throw profilesError;
+        if (profilesError) {
+          console.error("Error fetching profiles:", profilesError);
+          throw profilesError;
+        }
+        
+        console.log("Profiles data:", profilesData);
         
         // Create a map for profiles
         const profilesMap = new Map();
-        profilesData?.forEach(profile => {
-          profilesMap.set(profile.id, profile);
-        });
+        if (profilesData) {
+          profilesData.forEach(profile => {
+            profilesMap.set(profile.id, profile);
+          });
+        }
         
         // Combine the data
         const combined = pcData.map(pc => {
-          const profile = profilesMap.get(pc.practitioner.user_id) || { 
+          const profile = profilesMap.get(pc.practitioner?.user_id) || { 
             first_name: null, 
             last_name: null, 
             avatar_url: null 
@@ -104,6 +128,7 @@ export function usePractitionerCenters() {
           };
         });
         
+        console.log("Combined practitioner-center data:", combined);
         setPractitionerCenters(combined);
       } catch (error: any) {
         console.error("Error fetching practitioner centers:", error);
@@ -120,12 +145,19 @@ export function usePractitionerCenters() {
   useEffect(() => {
     const fetchPractitioners = async () => {
       try {
-        // Modified query to avoid direct join
+        console.log("Fetching practitioners...");
+        
+        // First, get all practitioners
         const { data: practitionersData, error: practitionersError } = await supabase
           .from('practitioners')
           .select('id, speciality, user_id');
         
-        if (practitionersError) throw practitionersError;
+        if (practitionersError) {
+          console.error("Error fetching practitioners:", practitionersError);
+          throw practitionersError;
+        }
+        
+        console.log("Practitioners data:", practitionersData);
         
         if (!practitionersData || practitionersData.length === 0) {
           setPractitioners([]);
@@ -133,35 +165,49 @@ export function usePractitionerCenters() {
         }
 
         // Fetch profiles separately
-        const userIds = practitionersData.map(p => p.user_id).filter(Boolean);
+        const userIds = practitionersData
+          .map(p => p.user_id)
+          .filter(Boolean);
+        
+        console.log("User IDs for practitioner profiles:", userIds);
         
         const { data: profilesData, error: profilesError } = await supabase
           .from('profiles')
           .select('id, first_name, last_name')
           .in('id', userIds);
         
-        if (profilesError) throw profilesError;
+        if (profilesError) {
+          console.error("Error fetching practitioner profiles:", profilesError);
+          throw profilesError;
+        }
+        
+        console.log("Practitioner profiles data:", profilesData);
         
         // Create a map for profiles
         const profilesMap = new Map();
-        profilesData?.forEach(profile => {
-          profilesMap.set(profile.id, profile);
-        });
+        if (profilesData) {
+          profilesData.forEach(profile => {
+            profilesMap.set(profile.id, profile);
+          });
+        }
         
         // Combine the data
         const practitionerOptions = practitionersData.map(p => {
           const profile = profilesMap.get(p.user_id) || { first_name: null, last_name: null };
+          const name = `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Sans nom';
           
           return {
             id: p.id,
-            name: `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Sans nom',
+            name: name,
             speciality: p.speciality
           };
         });
         
+        console.log("Practitioner options:", practitionerOptions);
         setPractitioners(practitionerOptions);
       } catch (error) {
         console.error("Error fetching practitioners:", error);
+        toast.error("Erreur lors du chargement des praticiens");
       }
     };
 
@@ -172,16 +218,23 @@ export function usePractitionerCenters() {
   useEffect(() => {
     const fetchCenters = async () => {
       try {
+        console.log("Fetching health centers...");
+        
         const { data, error } = await supabase
           .from('health_centers')
           .select('id, name, city')
           .order('name', { ascending: true });
         
-        if (error) throw error;
+        if (error) {
+          console.error("Error fetching health centers:", error);
+          throw error;
+        }
         
+        console.log("Health centers data:", data);
         setCenters(data || []);
       } catch (error) {
         console.error("Error fetching health centers:", error);
+        toast.error("Erreur lors du chargement des centres de santé");
       }
     };
 

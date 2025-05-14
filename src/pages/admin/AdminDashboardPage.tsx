@@ -4,7 +4,7 @@ import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Loader2, Users, Building, UserCog, Settings } from "lucide-react"; // Added Settings import
+import { Loader2, Users, Building, UserCog, Settings } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -39,9 +39,9 @@ const AdminDashboardPage = () => {
         console.log("Fetching admin statistics...");
 
         // Récupérer le nombre total de patients (profiles avec user_type = 'patient')
-        const { count: patientCount, error: patientError } = await supabase
+        const { data: patientData, error: patientError } = await supabase
           .from('profiles')
-          .select('*', { count: 'exact', head: true })
+          .select('*')
           .eq('user_type', 'patient');
         
         if (patientError) {
@@ -49,40 +49,43 @@ const AdminDashboardPage = () => {
           throw patientError;
         }
 
+        const patientCount = patientData ? patientData.length : 0;
+        console.log("Found patients:", patientCount);
+
         // Récupérer le nombre total de praticiens
-        const { count: practitionerCount, error: practitionerError } = await supabase
+        const { data: practitionerData, error: practitionerError } = await supabase
           .from('practitioners')
-          .select('*', { count: 'exact', head: true });
+          .select('*');
         
         if (practitionerError) {
           console.error("Error fetching practitioners:", practitionerError);
           throw practitionerError;
         }
 
+        const practitionerCount = practitionerData ? practitionerData.length : 0;
+        console.log("Found practitioners:", practitionerCount);
+
         // Récupérer le nombre total de centres de santé
-        const { count: centerCount, error: centerError } = await supabase
+        const { data: centerData, error: centerError } = await supabase
           .from('health_centers')
-          .select('*', { count: 'exact', head: true });
+          .select('*');
         
         if (centerError) {
           console.error("Error fetching health centers:", centerError);
           throw centerError;
         }
 
-        console.log("Statistics fetched:", {
-          patients: patientCount,
-          practitioners: practitionerCount,
-          centers: centerCount
-        });
+        const centerCount = centerData ? centerData.length : 0;
+        console.log("Found centers:", centerCount);
 
         setStats({
-          totalPatients: patientCount || 0,
-          totalPractitioners: practitionerCount || 0,
-          totalCenters: centerCount || 0
+          totalPatients: patientCount,
+          totalPractitioners: practitionerCount,
+          totalCenters: centerCount
         });
 
-        // Générer des données d'activité récentes (7 derniers jours)
-        generateActivityData();
+        // Récupérer les données d'activité récentes (7 derniers jours)
+        fetchActivityData();
 
       } catch (error) {
         console.error("Error fetching admin stats:", error);
@@ -97,22 +100,28 @@ const AdminDashboardPage = () => {
     }
   }, [isAdmin, refreshTrigger]);
 
-  // Générer des données d'activité pour les 7 derniers jours
-  const generateActivityData = () => {
-    const days = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
-    const today = new Date();
-    const last7Days = Array(7)
-      .fill(null)
-      .map((_, index) => {
-        const date = new Date();
-        date.setDate(today.getDate() - (6 - index));
-        return {
-          name: days[date.getDay()],
-          value: Math.floor(Math.random() * 30) + 5 // Données simulées pour l'instant
-        };
-      });
-    
-    setActivityData(last7Days);
+  // Récupérer les données d'activité pour les 7 derniers jours
+  const fetchActivityData = async () => {
+    try {
+      // Pour cette version, nous allons simuler les données d'activité
+      // Dans une version future, on pourrait compter les connexions ou actions par jour
+      const days = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
+      const today = new Date();
+      const last7Days = Array(7)
+        .fill(null)
+        .map((_, index) => {
+          const date = new Date();
+          date.setDate(today.getDate() - (6 - index));
+          return {
+            name: days[date.getDay()],
+            value: Math.floor(Math.random() * 30) + 5 // Données simulées pour l'instant
+          };
+        });
+      
+      setActivityData(last7Days);
+    } catch (error) {
+      console.error("Error fetching activity data:", error);
+    }
   };
 
   if (isLoading) {
