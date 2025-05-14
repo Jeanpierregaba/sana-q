@@ -51,21 +51,21 @@ export function PractitionerCentersTable({
                 <TableCell>
                   <div className="flex items-center gap-3">
                     <Avatar>
-                      <AvatarImage src={pc.practitioner_avatar_url || undefined} />
+                      <AvatarImage src={pc.practitioner?.profile?.avatar_url || undefined} />
                       <AvatarFallback>
-                        {pc.practitioner_first_name?.[0] || ""}
-                        {pc.practitioner_last_name?.[0] || ""}
+                        {pc.practitioner?.profile?.first_name?.[0] || ""}
+                        {pc.practitioner?.profile?.last_name?.[0] || ""}
                       </AvatarFallback>
                     </Avatar>
                     <div>
                       <p className="font-medium">
-                        {pc.practitioner_first_name} {pc.practitioner_last_name}
+                        {pc.practitioner?.profile?.first_name} {pc.practitioner?.profile?.last_name}
                       </p>
                     </div>
                   </div>
                 </TableCell>
                 <TableCell>
-                  <Badge variant="outline">{pc.practitioner.speciality}</Badge>
+                  <Badge variant="outline">{pc.practitioner?.speciality}</Badge>
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-3">
@@ -73,8 +73,8 @@ export function PractitionerCentersTable({
                       <Building className="h-4 w-4" />
                     </div>
                     <div>
-                      <p className="font-medium">{pc.center.name}</p>
-                      <p className="text-sm text-muted-foreground">{pc.center.city}</p>
+                      <p className="font-medium">{pc.health_center?.name}</p>
+                      <p className="text-sm text-muted-foreground">{pc.health_center?.city}</p>
                     </div>
                   </div>
                 </TableCell>
