@@ -91,8 +91,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const fetchUserProfile = async (userId: string) => {
     try {
-      // Au lieu d'une requête directe à la table profiles, utilisons la fonction is_admin
-      // combinée avec une requête au profil pour éviter la récursion
+      // Vérification du statut admin avec la fonction RPC
       const { data: adminData, error: adminError } = await supabase.rpc('is_admin', { uid: userId });
       
       if (adminError) {
@@ -102,24 +101,35 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setIsAdmin(adminData);
       }
 
-      // Requête distincte pour récupérer le profil
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .maybeSingle();
-
-      if (profileError) {
-        console.error("Error fetching user profile:", profileError);
-        throw profileError;
+      // Contournement du problème de récursion infinie: requête directe avec des champs spécifiques
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      
+      if (userError) {
+        throw userError;
       }
-
-      if (profileData) {
-        console.log('User profile loaded:', profileData);
-        setProfile(profileData as UserProfile);
+      
+      if (userData.user) {
+        // Créer un profil à partir des métadonnées de l'utilisateur
+        const userMetadata = userData.user.user_metadata;
+        
+        const userProfile = {
+          id: userId,
+          first_name: userMetadata?.first_name || null,
+          last_name: userMetadata?.last_name || null,
+          avatar_url: userMetadata?.avatar_url || null,
+          user_type: userMetadata?.user_type || 'patient',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        } as UserProfile;
+        
+        console.log('User profile created from metadata:', userProfile);
+        setProfile(userProfile);
       }
     } catch (error) {
       console.error("Error in fetchUserProfile:", error);
+      toast.error("Erreur lors de la récupération du profil utilisateur");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -164,7 +174,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         throw error;
       }
 
-      // La navigation et la vérification des droits se font dans les pages de login
       toast.success("Connexion réussie!");
     } catch (error: any) {
       console.error("Erreur lors de la connexion:", error);

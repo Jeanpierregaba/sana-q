@@ -35,18 +35,19 @@ const DashboardPage = () => {
     );
   }
 
-  // Rediriger vers le tableau de bord approprié en fonction du type d'utilisateur
+  // Afficher le dashboard correspondant au type d'utilisateur
   switch (profile?.user_type) {
     case "doctor":
+      console.log("Loading doctor dashboard");
       return <DoctorDashboardPage />;
     case "facility":
+      console.log("Loading facility dashboard");
       return <FacilityDashboardPage />;
     case "admin":
-      // Les administrateurs verront le tableau de bord patient par défaut
-      // Note: ils ont accès au tableau de bord admin via le menu
+      console.log("Loading admin dashboard (using patient view)");
       return <PatientDashboardPage />;
     default:
-      // Par défaut, afficher le tableau de bord patient
+      console.log("Loading default (patient) dashboard");
       return <PatientDashboardPage />;
   }
 };

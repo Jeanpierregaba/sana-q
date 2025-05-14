@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -54,7 +53,7 @@ const LoginPage = () => {
     try {
       await signIn(values.email, values.password);
       
-      // Récupérer l'utilisateur après la connexion pour déterminer où le rediriger
+      // Afficher les métadonnées utilisateur pour débogage
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       
       if (userError) {
@@ -62,28 +61,11 @@ const LoginPage = () => {
       }
       
       if (user) {
-        const { data: profileData, error: profileError } = await supabase
-          .from('profiles')
-          .select('user_type')
-          .eq('id', user.id)
-          .single();
+        console.log("User metadata:", user.user_metadata);
+        console.log("User type from metadata:", user.user_metadata?.user_type);
         
-        if (profileError) {
-          console.error("Erreur de récupération du profil:", profileError);
-          navigate("/app"); // Par défaut si erreur
-          return;
-        }
-        
-        if (profileData) {
-          console.log("Type d'utilisateur:", profileData.user_type);
-          if (profileData.user_type === 'admin') {
-            navigate("/app/admin/dashboard");
-          } else {
-            navigate("/app"); // Utilisateur normal
-          }
-        } else {
-          navigate("/app"); // Par défaut si pas de profil
-        }
+        // Redirection vers le tableau de bord
+        navigate("/app");
       }
     } catch (error: any) {
       console.error("Erreur de connexion:", error);
