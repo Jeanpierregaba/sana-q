@@ -1,53 +1,48 @@
 
 import { useState } from "react";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
-import * as z from "zod";
-import { 
-  Dialog, DialogContent, DialogDescription, DialogFooter, 
-  DialogHeader, DialogTitle 
-} from "@/components/ui/dialog";
-import { 
-  Form, FormControl, FormField, FormItem, FormLabel, FormMessage 
-} from "@/components/ui/form";
-import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { type PractitionerOption, type CenterOption } from "@/hooks/usePractitionerCenters";
+import { Button } from "@/components/ui/button";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { Practitioner, HealthCenter } from "@/hooks/usePractitionerCenters";
+import { Loader2 } from "lucide-react";
 
-// Validation schema for the form
-const practitionerCenterSchema = z.object({
-  practitioner_id: z.string().uuid({ message: "Veuillez sélectionner un praticien" }),
-  center_id: z.string().uuid({ message: "Veuillez sélectionner un centre" }),
+const formSchema = z.object({
+  practitioner_id: z.string().min(1, "Veuillez sélectionner un praticien"),
+  center_id: z.string().min(1, "Veuillez sélectionner un centre"),
 });
 
-type PractitionerCenterFormValues = z.infer<typeof practitionerCenterSchema>;
+type FormValues = z.infer<typeof formSchema>;
 
 interface CreatePractitionerCenterFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  practitioners: PractitionerOption[];
-  centers: CenterOption[];
-  onSubmit: (values: PractitionerCenterFormValues) => Promise<void>;
+  practitioners: Practitioner[];
+  centers: HealthCenter[];
+  onSubmit: (values: FormValues) => Promise<void>;
 }
 
-export function CreatePractitionerCenterForm({
+export const CreatePractitionerCenterForm = ({
   open,
   onOpenChange,
   practitioners,
   centers,
-  onSubmit
-}: CreatePractitionerCenterFormProps) {
+  onSubmit,
+}: CreatePractitionerCenterFormProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  const form = useForm<PractitionerCenterFormValues>({
-    resolver: zodResolver(practitionerCenterSchema),
+  const form = useForm<FormValues>({
+    resolver: zodResolver(formSchema),
     defaultValues: {
       practitioner_id: "",
       center_id: "",
     },
   });
 
-  const handleSubmit = async (values: PractitionerCenterFormValues) => {
+  const handleSubmit = async (values: FormValues) => {
     setIsSubmitting(true);
     try {
       await onSubmit(values);
@@ -57,16 +52,24 @@ export function CreatePractitionerCenterForm({
     }
   };
 
+  // Reset form when dialog closes
+  const handleOpenChange = (open: boolean) => {
+    if (!open) {
+      form.reset();
+    }
+    onOpenChange(open);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Ajouter une association</DialogTitle>
+          <DialogTitle>Associer un praticien à un centre</DialogTitle>
           <DialogDescription>
-            Associez un praticien à un centre de santé.
+            Créez une nouvelle association entre un praticien et un centre de santé.
           </DialogDescription>
         </DialogHeader>
-        
+
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
             <FormField
@@ -79,17 +82,25 @@ export function CreatePractitionerCenterForm({
                     <Select
                       onValueChange={field.onChange}
                       defaultValue={field.value}
+                      disabled={isSubmitting}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Sélectionnez un praticien" />
                       </SelectTrigger>
                       <SelectContent>
                         {practitioners.length === 0 ? (
-                          <SelectItem value="none" disabled>Aucun praticien disponible</SelectItem>
+                          <div className="p-2 text-sm text-muted-foreground">
+                            Aucun praticien disponible
+                          </div>
                         ) : (
                           practitioners.map((practitioner) => (
                             <SelectItem key={practitioner.id} value={practitioner.id}>
-                              {practitioner.name} - {practitioner.speciality}
+                              {practitioner.profile?.first_name || ''} {practitioner.profile?.last_name || ''}
+                              {!practitioner.profile?.first_name && !practitioner.profile?.last_name && 
+                                `Praticien ${practitioner.id.substring(0, 8)}`}
+                              <span className="ml-2 text-sm text-muted-foreground">
+                                ({practitioner.speciality})
+                              </span>
                             </SelectItem>
                           ))
                         )}
@@ -100,7 +111,7 @@ export function CreatePractitionerCenterForm({
                 </FormItem>
               )}
             />
-            
+
             <FormField
               control={form.control}
               name="center_id"
@@ -111,17 +122,23 @@ export function CreatePractitionerCenterForm({
                     <Select
                       onValueChange={field.onChange}
                       defaultValue={field.value}
+                      disabled={isSubmitting}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Sélectionnez un centre de santé" />
+                        <SelectValue placeholder="Sélectionnez un centre" />
                       </SelectTrigger>
                       <SelectContent>
                         {centers.length === 0 ? (
-                          <SelectItem value="none" disabled>Aucun centre disponible</SelectItem>
+                          <div className="p-2 text-sm text-muted-foreground">
+                            Aucun centre disponible
+                          </div>
                         ) : (
                           centers.map((center) => (
                             <SelectItem key={center.id} value={center.id}>
-                              {center.name} ({center.city})
+                              {center.name} 
+                              <span className="ml-2 text-sm text-muted-foreground">
+                                ({center.city})
+                              </span>
                             </SelectItem>
                           ))
                         )}
@@ -132,15 +149,22 @@ export function CreatePractitionerCenterForm({
                 </FormItem>
               )}
             />
-            
-            <DialogFooter>
+
+            <div className="flex justify-end">
               <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? "Association..." : "Associer"}
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Enregistrement...
+                  </>
+                ) : (
+                  "Enregistrer"
+                )}
               </Button>
-            </DialogFooter>
+            </div>
           </form>
         </Form>
       </DialogContent>
     </Dialog>
   );
-}
+};

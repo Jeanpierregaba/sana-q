@@ -1,4 +1,3 @@
-
 import { useState, useEffect, createContext, useContext, ReactNode } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
@@ -39,14 +38,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     // Set up auth state listener first
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, newSession) => {
+      (event, newSession) => {
         console.log('Auth state change:', event);
         setSession(newSession);
         setUser(newSession?.user ?? null);
 
         if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
           if (newSession?.user) {
-            // Utilisez setTimeout pour éviter les problèmes de récursion avec Supabase
+            // Use setTimeout to avoid recursion issues with Supabase
             setTimeout(() => {
               fetchUserProfile(newSession.user!.id);
             }, 0);
@@ -65,6 +64,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setIsLoading(true);
       try {
         const { data: { session: currentSession } } = await supabase.auth.getSession();
+        console.log("Current session:", currentSession);
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
         
@@ -91,17 +91,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const fetchUserProfile = async (userId: string) => {
     try {
-      // Vérification du statut admin avec la fonction RPC
+      console.log("Fetching user profile for:", userId);
+      
+      // Check admin status via RPC function
       const { data: adminData, error: adminError } = await supabase.rpc('is_admin', { uid: userId });
       
       if (adminError) {
         console.error("Error checking admin status:", adminError);
       } else {
         console.log('Is admin check result:', adminData);
-        setIsAdmin(adminData);
+        setIsAdmin(Boolean(adminData));
       }
 
-      // Contournement du problème de récursion infinie: requête directe avec des champs spécifiques
+      // Fetch user metadata
       const { data: userData, error: userError } = await supabase.auth.getUser();
       
       if (userError) {
@@ -109,27 +111,39 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
       
       if (userData.user) {
-        // Créer un profil à partir des métadonnées de l'utilisateur
         const userMetadata = userData.user.user_metadata;
+        console.log("User metadata:", userMetadata);
         
+        // Also fetch profile data from profiles table
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', userId)
+          .single();
+          
+        if (profileError && profileError.code !== 'PGRST116') {  // Not found is ok
+          console.error("Error fetching profile from database:", profileError);
+        }
+        
+        console.log("Profile data from DB:", profileData);
+        
+        // Combine metadata with profile data if available
         const userProfile = {
           id: userId,
-          first_name: userMetadata?.first_name || null,
-          last_name: userMetadata?.last_name || null,
-          avatar_url: userMetadata?.avatar_url || null,
-          user_type: userMetadata?.user_type || 'patient',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+          first_name: profileData?.first_name || userMetadata?.first_name || null,
+          last_name: profileData?.last_name || userMetadata?.last_name || null,
+          avatar_url: profileData?.avatar_url || userMetadata?.avatar_url || null,
+          user_type: profileData?.user_type || userMetadata?.user_type || 'patient',
+          created_at: profileData?.created_at || new Date().toISOString(),
+          updated_at: profileData?.updated_at || new Date().toISOString()
         } as UserProfile;
         
-        console.log('User profile created from metadata:', userProfile);
+        console.log('User profile created:', userProfile);
         setProfile(userProfile);
       }
     } catch (error) {
       console.error("Error in fetchUserProfile:", error);
       toast.error("Erreur lors de la récupération du profil utilisateur");
-    } finally {
-      setIsLoading(false);
     }
   };
 

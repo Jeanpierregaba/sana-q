@@ -41,21 +41,21 @@ const AdminDashboardPage = () => {
         // Récupérer le nombre total de patients (profiles avec user_type = 'patient')
         const { data: patientData, error: patientError } = await supabase
           .from('profiles')
-          .select('*')
+          .select('id')
           .eq('user_type', 'patient');
         
         if (patientError) {
           console.error("Error fetching patients:", patientError);
           throw patientError;
         }
-
+        
         const patientCount = patientData ? patientData.length : 0;
-        console.log("Found patients:", patientCount);
+        console.log("Found patients:", patientCount, patientData);
 
         // Récupérer le nombre total de praticiens
         const { data: practitionerData, error: practitionerError } = await supabase
           .from('practitioners')
-          .select('*');
+          .select('id');
         
         if (practitionerError) {
           console.error("Error fetching practitioners:", practitionerError);
@@ -63,12 +63,12 @@ const AdminDashboardPage = () => {
         }
 
         const practitionerCount = practitionerData ? practitionerData.length : 0;
-        console.log("Found practitioners:", practitionerCount);
+        console.log("Found practitioners:", practitionerCount, practitionerData);
 
         // Récupérer le nombre total de centres de santé
         const { data: centerData, error: centerError } = await supabase
           .from('health_centers')
-          .select('*');
+          .select('id');
         
         if (centerError) {
           console.error("Error fetching health centers:", centerError);
@@ -76,7 +76,7 @@ const AdminDashboardPage = () => {
         }
 
         const centerCount = centerData ? centerData.length : 0;
-        console.log("Found centers:", centerCount);
+        console.log("Found centers:", centerCount, centerData);
 
         setStats({
           totalPatients: patientCount,

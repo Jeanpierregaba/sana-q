@@ -70,7 +70,7 @@ const PatientsPage = () => {
       try {
         console.log("Fetching patients...");
         
-        // We query from auth.users via profiles table to get all patients
+        // We query from profiles table to get all patients
         const { data, error } = await supabase
           .from('profiles')
           .select('*')
