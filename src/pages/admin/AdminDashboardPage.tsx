@@ -4,8 +4,15 @@ import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Loader2, Users, Building, UserCog, Settings } from "lucide-react";
+import { Loader2, Users, Building, UserCog } from "lucide-react";
 import { Link } from "react-router-dom";
+import { toast } from "sonner";
+
+// Interface pour les statistiques de l'activité
+interface ActivityData {
+  name: string;
+  value: number;
+}
 
 const AdminDashboardPage = () => {
   const { isAdmin } = useAuth();
@@ -15,40 +22,71 @@ const AdminDashboardPage = () => {
     totalPractitioners: 0,
     totalCenters: 0
   });
+  const [activityData, setActivityData] = useState<ActivityData[]>([]);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
+  // Fonction pour rafraîchir les données
+  const refreshData = () => {
+    setRefreshTrigger(prev => prev + 1);
+    toast.info("Actualisation des données en cours...");
+  };
+
+  // Récupérer les statistiques de la base de données
   useEffect(() => {
     const fetchStats = async () => {
       setIsLoading(true);
       try {
-        // Fetch total patients (profiles with user_type = 'patient')
+        console.log("Fetching admin statistics...");
+
+        // Récupérer le nombre total de patients (profiles avec user_type = 'patient')
         const { count: patientCount, error: patientError } = await supabase
           .from('profiles')
           .select('*', { count: 'exact', head: true })
           .eq('user_type', 'patient');
         
-        if (patientError) throw patientError;
+        if (patientError) {
+          console.error("Error fetching patients:", patientError);
+          throw patientError;
+        }
 
-        // Fetch total practitioners
+        // Récupérer le nombre total de praticiens
         const { count: practitionerCount, error: practitionerError } = await supabase
           .from('practitioners')
           .select('*', { count: 'exact', head: true });
         
-        if (practitionerError) throw practitionerError;
+        if (practitionerError) {
+          console.error("Error fetching practitioners:", practitionerError);
+          throw practitionerError;
+        }
 
-        // Fetch total health centers
+        // Récupérer le nombre total de centres de santé
         const { count: centerCount, error: centerError } = await supabase
           .from('health_centers')
           .select('*', { count: 'exact', head: true });
         
-        if (centerError) throw centerError;
+        if (centerError) {
+          console.error("Error fetching health centers:", centerError);
+          throw centerError;
+        }
+
+        console.log("Statistics fetched:", {
+          patients: patientCount,
+          practitioners: practitionerCount,
+          centers: centerCount
+        });
 
         setStats({
           totalPatients: patientCount || 0,
           totalPractitioners: practitionerCount || 0,
           totalCenters: centerCount || 0
         });
+
+        // Générer des données d'activité récentes (7 derniers jours)
+        generateActivityData();
+
       } catch (error) {
         console.error("Error fetching admin stats:", error);
+        toast.error("Erreur lors de la récupération des statistiques");
       } finally {
         setIsLoading(false);
       }
@@ -57,18 +95,25 @@ const AdminDashboardPage = () => {
     if (isAdmin) {
       fetchStats();
     }
-  }, [isAdmin]);
+  }, [isAdmin, refreshTrigger]);
 
-  // Dummy data for activity chart
-  const activityData = [
-    { name: 'Lun', value: 12 },
-    { name: 'Mar', value: 18 },
-    { name: 'Mer', value: 29 },
-    { name: 'Jeu', value: 22 },
-    { name: 'Ven', value: 33 },
-    { name: 'Sam', value: 15 },
-    { name: 'Dim', value: 8 },
-  ];
+  // Générer des données d'activité pour les 7 derniers jours
+  const generateActivityData = () => {
+    const days = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
+    const today = new Date();
+    const last7Days = Array(7)
+      .fill(null)
+      .map((_, index) => {
+        const date = new Date();
+        date.setDate(today.getDate() - (6 - index));
+        return {
+          name: days[date.getDay()],
+          value: Math.floor(Math.random() * 30) + 5 // Données simulées pour l'instant
+        };
+      });
+    
+    setActivityData(last7Days);
+  };
 
   if (isLoading) {
     return (
@@ -80,11 +125,19 @@ const AdminDashboardPage = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-3xl font-bold tracking-tight">Dashboard Administrateur</h2>
-        <p className="text-muted-foreground">
-          Gérez l'ensemble des données et paramètres de la plateforme MediSync.
-        </p>
+      <div className="flex justify-between items-center">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">Dashboard Administrateur</h2>
+          <p className="text-muted-foreground">
+            Gérez l'ensemble des données et paramètres de la plateforme MediSync.
+          </p>
+        </div>
+        <button 
+          onClick={refreshData}
+          className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2"
+        >
+          Actualiser
+        </button>
       </div>
 
       {/* Stats Cards */}
@@ -149,8 +202,9 @@ const AdminDashboardPage = () => {
 
       {/* Activity Chart */}
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Activité de la plateforme</CardTitle>
+          <div className="text-sm text-muted-foreground">Derniers 7 jours</div>
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={250}>

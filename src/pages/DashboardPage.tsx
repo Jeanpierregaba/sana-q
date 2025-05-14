@@ -3,11 +3,13 @@ import { useAuth } from "@/hooks/useAuth";
 import DoctorDashboardPage from "./DoctorDashboardPage";
 import FacilityDashboardPage from "./FacilityDashboardPage";
 import PatientDashboardPage from "./PatientDashboardPage";
+import AdminDashboardPage from "./admin/AdminDashboardPage";
 import { useEffect } from "react";
 import { toast } from "sonner";
+import { Navigate } from "react-router-dom";
 
 const DashboardPage = () => {
-  const { profile, isLoading } = useAuth();
+  const { profile, isLoading, isAdmin } = useAuth();
   
   useEffect(() => {
     console.log("User profile in Dashboard:", profile);
@@ -20,7 +22,7 @@ const DashboardPage = () => {
         doctor: "Praticien",
         facility: "Centre de Santé",
         patient: "Patient",
-        admin: "Patient (Administrateur)"
+        admin: "Administrateur"
       };
       
       toast.info(`Tableau de bord ${dashboardTypes[profile.user_type] || "Utilisateur"} chargé`);
@@ -35,6 +37,12 @@ const DashboardPage = () => {
     );
   }
 
+  // Si c'est un admin, rediriger directement vers le dashboard admin
+  if (isAdmin) {
+    console.log("Redirecting admin to admin dashboard");
+    return <Navigate to="/app/admin/dashboard" replace />;
+  }
+
   // Afficher le dashboard correspondant au type d'utilisateur
   switch (profile?.user_type) {
     case "doctor":
@@ -43,9 +51,6 @@ const DashboardPage = () => {
     case "facility":
       console.log("Loading facility dashboard");
       return <FacilityDashboardPage />;
-    case "admin":
-      console.log("Loading admin dashboard (using patient view)");
-      return <PatientDashboardPage />;
     default:
       console.log("Loading default (patient) dashboard");
       return <PatientDashboardPage />;

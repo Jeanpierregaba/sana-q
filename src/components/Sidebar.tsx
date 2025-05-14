@@ -4,9 +4,6 @@ import { Button } from "./ui/button";
 import { cn } from "@/lib/utils";
 import { 
   Home, 
-  Calendar, 
-  User, 
-  Users, 
   LogOut,
   Menu,
   X,
@@ -14,7 +11,8 @@ import {
   Settings,
   UserCog,
   Building,
-  Link2
+  Link2,
+  Users
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
@@ -72,10 +70,10 @@ const Sidebar = ({ open, setOpen }: SidebarProps) => {
     { name: "Paramètres", path: "/app/admin/settings", icon: Settings }
   ];
 
-  const sidebarItems: SidebarItem[] = [
-    ...commonSidebarItems,
-    ...(isAdmin ? adminSidebarItems : [])
-  ];
+  // Pour les administrateurs, n'afficher que les sections d'administration
+  const sidebarItems: SidebarItem[] = isAdmin
+    ? adminSidebarItems
+    : commonSidebarItems;
 
   const isPathActive = (path: string, exact: boolean = false) => {
     if (exact) {
