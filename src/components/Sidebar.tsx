@@ -12,8 +12,9 @@ import {
   UserCog,
   Building,
   Link2,
-  Users, // This is the correct icon name, not User
-  Calendar // This was missing
+  Users,
+  Calendar,
+  CalendarRange
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
@@ -59,7 +60,7 @@ const Sidebar = ({ open, setOpen }: SidebarProps) => {
     { name: "Tableau de bord", path: "/app", icon: Home, exact: true },
     { name: "Rendez-vous", path: "/app/appointments", icon: Calendar },
     { name: "Médecins", path: "/app/doctors", icon: Users },
-    { name: "Mon profil", path: "/app/profile", icon: Users } // Changed from User to Users
+    { name: "Mon profil", path: "/app/profile", icon: Users }
   ];
 
   const adminSidebarItems: SidebarItem[] = [
@@ -68,6 +69,7 @@ const Sidebar = ({ open, setOpen }: SidebarProps) => {
     { name: "Praticiens", path: "/app/admin/practitioners", icon: UserCog },
     { name: "Centres de santé", path: "/app/admin/centers", icon: Building },
     { name: "Affiliations", path: "/app/admin/practitioner-centers", icon: Link2 },
+    { name: "Rendez-vous", path: "/app/admin/appointments", icon: CalendarRange },
     { name: "Paramètres", path: "/app/admin/settings", icon: Settings }
   ];
 

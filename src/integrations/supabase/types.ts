@@ -9,6 +9,76 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      appointments: {
+        Row: {
+          center_id: string
+          created_at: string
+          created_by: string | null
+          end_time: string
+          id: string
+          notes: string | null
+          patient_id: string
+          practitioner_id: string
+          reason: string | null
+          start_time: string
+          status: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          center_id: string
+          created_at?: string
+          created_by?: string | null
+          end_time: string
+          id?: string
+          notes?: string | null
+          patient_id: string
+          practitioner_id: string
+          reason?: string | null
+          start_time: string
+          status?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          center_id?: string
+          created_at?: string
+          created_by?: string | null
+          end_time?: string
+          id?: string
+          notes?: string | null
+          patient_id?: string
+          practitioner_id?: string
+          reason?: string | null
+          start_time?: string
+          status?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appointments_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "health_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointments_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointments_practitioner_id_fkey"
+            columns: ["practitioner_id"]
+            isOneToOne: false
+            referencedRelation: "practitioners"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       health_centers: {
         Row: {
           address: string
@@ -179,7 +249,51 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      appointments_view: {
+        Row: {
+          center_city: string | null
+          center_id: string | null
+          center_name: string | null
+          created_at: string | null
+          end_time: string | null
+          id: string | null
+          notes: string | null
+          patient_first_name: string | null
+          patient_id: string | null
+          patient_last_name: string | null
+          practitioner_first_name: string | null
+          practitioner_id: string | null
+          practitioner_last_name: string | null
+          practitioner_speciality: string | null
+          reason: string | null
+          start_time: string | null
+          status: string | null
+          updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appointments_center_id_fkey"
+            columns: ["center_id"]
+            isOneToOne: false
+            referencedRelation: "health_centers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointments_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointments_practitioner_id_fkey"
+            columns: ["practitioner_id"]
+            isOneToOne: false
+            referencedRelation: "practitioners"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       is_admin: {
