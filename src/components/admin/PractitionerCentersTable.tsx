@@ -51,7 +51,8 @@ export function PractitionerCentersTable({
                 <TableCell>
                   <div className="flex items-center gap-3">
                     <Avatar>
-                      <AvatarImage src={pc.practitioner?.profile?.avatar_url || undefined} />
+                      {/* Removed the avatar_url access since it doesn't exist in the type */}
+                      <AvatarImage src={undefined} />
                       <AvatarFallback>
                         {pc.practitioner?.profile?.first_name?.[0] || ""}
                         {pc.practitioner?.profile?.last_name?.[0] || ""}
