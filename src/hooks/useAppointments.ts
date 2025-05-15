@@ -57,6 +57,8 @@ export function useAppointments(filters: AppointmentFilters = DEFAULT_FILTERS) {
   const [totalAppointments, setTotalAppointments] = useState<number>(0);
   
   const fetchAppointments = async () => {
+    console.log("Fetching appointments with filters:", filters);
+    
     try {
       let query = supabase
         .from('appointments_view')
@@ -93,8 +95,11 @@ export function useAppointments(filters: AppointmentFilters = DEFAULT_FILTERS) {
         .select('*', { count: 'exact', head: true });
       
       if (countError) {
+        console.error('Error getting count:', countError);
         throw countError;
       }
+      
+      console.log("Total appointments count:", count);
       
       if (count !== null) {
         setTotalAppointments(count);
@@ -105,12 +110,14 @@ export function useAppointments(filters: AppointmentFilters = DEFAULT_FILTERS) {
         .order('start_time', { ascending: false });
       
       if (error) {
+        console.error('Error fetching appointments data:', error);
         throw error;
       }
       
+      console.log("Appointments data retrieved:", data?.length || 0);
       return data as Appointment[];
     } catch (error) {
-      console.error('Error fetching appointments:', error);
+      console.error('Error in fetchAppointments:', error);
       toast.error('Erreur lors de la récupération des rendez-vous');
       return [];
     }

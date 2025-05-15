@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -29,7 +28,15 @@ import PractitionerCentersPage from "./pages/admin/PractitionerCentersPage";
 import AdminAppointmentsPage from "./pages/admin/AppointmentsPage";
 import SettingsPage from "./pages/admin/SettingsPage";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false,
+      staleTime: 30000
+    }
+  }
+});
 
 const AppRoutes = () => (
   <Routes>
