@@ -29,8 +29,8 @@ import { Loader2, MoreVertical, Trash, Calendar, Clock } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { 
-  type Appointment, 
-  type AppointmentStatus, 
+  Appointment, 
+  AppointmentStatus, 
   getStatusLabel, 
   getStatusColor 
 } from "@/hooks/useAppointments";
